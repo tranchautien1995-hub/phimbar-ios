@@ -1,0 +1,23 @@
+name: Build Messenger Restart IPA
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build one-tap TrollStore utility
+        run: bash scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MessengerRestart-iOS15-TrollStore
+          path: |
+            build/MessengerRestart-iOS15-TrollStore.ipa
+            build/SHA256.txt
+            build/signed-entitlements.plist
+            build/macho-info.txt
+          if-no-files-found: error
