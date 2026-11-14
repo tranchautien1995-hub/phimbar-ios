@@ -1,0 +1,23 @@
+name: Build iOS 15 IPA
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build arm64 IPA
+        run: bash scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Phimbar-iOS15-TrollStore
+          path: |
+            build/Phimbar-iOS15-TrollStore.ipa
+            build/SHA256.txt
+            build/macho-info.txt
+          if-no-files-found: error
