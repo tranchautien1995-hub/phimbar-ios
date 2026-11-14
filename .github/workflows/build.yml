@@ -10,6 +10,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Convert website CSS for iOS 15
+        run: |
+          npm ci --ignore-scripts
+          node scripts/prepare-css.mjs
       - name: Build arm64 IPA
         run: bash scripts/build.sh
       - uses: actions/upload-artifact@v4

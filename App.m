@@ -36,7 +36,7 @@
     [a addAction:[UIAlertAction actionWithTitle:@"Đóng" style:UIAlertActionStyleCancel handler:nil]];
     a.popoverPresentationController.barButtonItem=self.navigationItem.rightBarButtonItem;[self presentViewController:a animated:YES completion:nil];
 }
-- (void)webView:(WKWebView *)web didFinishNavigation:(WKNavigation *)navigation {self.title=web.title.length?web.title:@"Phimbar";}
+- (void)webView:(WKWebView *)web didFinishNavigation:(WKNavigation *)navigation {self.title=@"Phimbar";}
 - (void)webView:(WKWebView *)web didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {if(error.code==NSURLErrorCancelled)return;UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Không tải được trang" message:error.localizedDescription preferredStyle:1];[a addAction:[UIAlertAction actionWithTitle:@"Thử lại" style:0 handler:^(UIAlertAction *v){[self reload];}]];[a addAction:[UIAlertAction actionWithTitle:@"Đóng" style:1 handler:nil]];[self presentViewController:a animated:YES completion:nil];}
 - (void)webView:(WKWebView *)web decidePolicyForNavigationAction:(WKNavigationAction *)action decisionHandler:(void (^)(WKNavigationActionPolicy))handler {
     NSURL *u=action.request.URL;NSString *host=u.host.lowercaseString;
