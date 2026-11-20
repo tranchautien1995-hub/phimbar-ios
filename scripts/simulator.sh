@@ -1,15 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
-ARCH="$(uname -m)"
-APP=build/Simulator/XemPhim.app
-mkdir -p "$APP"
-xcrun swiftc -swift-version 5 -parse-as-library -D UI_PREVIEW -target "$ARCH-apple-ios15.0-simulator" -sdk "$SDK" Sources/*.swift -o "$APP/XemPhim" -framework SwiftUI -framework AVKit -framework Security -framework SafariServices
-cp Info.plist "$APP/Info.plist"
-plutil -replace CFBundleSupportedPlatforms -json '["iPhoneSimulator"]' "$APP/Info.plist"
-# Simulator binaries run under macOS/CoreSimulator, not TrollStore's iOS signer.
-# Do not apply the device-only application/keychain identity to this executable.
+if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+xcodegen generate --spec simulator.yml
+# Xcode creates the simulator's normal application identity and Keychain groups.
+# Device/TrollStore entitlements remain separate in scripts/build.sh.
+xcodebuild -project XemPhimQA.xcodeproj -scheme XemPhimQA -sdk iphonesimulator -configuration Debug -derivedDataPath build/QA-DerivedData CODE_SIGN_IDENTITY=- build > build/simulator-build.log 2>&1 || { tail -100 build/simulator-build.log; exit 1; }
+APP=build/QA-DerivedData/Build/Products/Debug-iphonesimulator/XemPhim.app
+codesign -d --entitlements :- "$APP" > build/simulator-entitlements.plist 2>/dev/null
 DEVICE="$(xcrun simctl list devices available -j | ruby -rjson -e 'j=JSON.parse(STDIN.read); d=j["devices"].values.flatten.find{|x| x["name"].start_with?("iPhone")}; abort "No iPhone simulator" unless d; puts d["udid"]')"
 xcrun simctl boot "$DEVICE" || true
 xcrun simctl bootstatus "$DEVICE" -b

@@ -1,0 +1,26 @@
+name: XemPhimQA
+options:
+  deploymentTarget:
+    iOS: '15.0'
+targets:
+  XemPhimQA:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: vn.onnstream.phimbar.ios
+        PRODUCT_NAME: XemPhim
+        INFOPLIST_FILE: Info.plist
+        SWIFT_VERSION: '5.0'
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG UI_PREVIEW
+        CODE_SIGN_ENTITLEMENTS: SimulatorEntitlements.plist
+        CODE_SIGN_IDENTITY: '-'
+        CODE_SIGNING_ALLOWED: YES
+        TARGETED_DEVICE_FAMILY: '1,2'
+schemes:
+  XemPhimQA:
+    build:
+      targets:
+        XemPhimQA: all

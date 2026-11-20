@@ -18,7 +18,7 @@ enum LoginKeychain {
             var q = query; q[kSecValueData as String] = data; q[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             guard SecItemAdd(q as CFDictionary, nil) == errSecSuccess else { throw ClientError.message("Không lưu được phiên đăng nhập trong Keychain.") }; return
         }
-        guard status == errSecSuccess else { throw ClientError.message("Không cập nhật được phiên đăng nhập.") }
+        guard status == errSecSuccess else { throw ClientError.message("Không cập nhật được phiên đăng nhập (\(status)).") }
     }
 }
 

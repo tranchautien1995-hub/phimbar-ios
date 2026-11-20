@@ -32,6 +32,8 @@ jobs:
             build/player-verification.json
             build/keychain-verification.json
             build/entitlements.plist
+            build/simulator-entitlements.plist
+            build/simulator-build.log
             build/simulator-*.png
             build/simulator-launch.txt
           if-no-files-found: error
