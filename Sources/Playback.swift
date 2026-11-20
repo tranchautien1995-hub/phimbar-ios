@@ -237,47 +237,63 @@ struct NativeVideo: UIViewRepresentable {
     var actualTarget: PlayTarget { active ?? target }
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                Button { Task { await playback.stop(); dismiss() } } label: { Image(systemName: "chevron.down").font(.title2).padding(10) }.accessibilityLabel("Đóng trình phát")
-                Text(playback.title.isEmpty ? actualTarget.title : playback.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
-                Spacer(minLength: 0)
-            }.padding(.horizontal, 10).background(Color.navy)
-            ZStack(alignment: .bottom) {
-                NativeVideo(playback: playback).clipped()
-                if !playback.caption.isEmpty {
-                    Text(playback.caption).font(.system(size: size, weight: .semibold)).foregroundColor(yellow ? .yellow : .white)
-                        .multilineTextAlignment(.center).padding(8).background(background ? Color.black.opacity(0.65) : Color.clear).cornerRadius(4)
-                        .shadow(color: .black, radius: 2).padding(.horizontal, 24).padding(.bottom, bottom).allowsHitTesting(false)
-                }
-                if playback.loading { ProgressView("Đang tải video…").padding(24).background(Color.black.opacity(0.8)).cornerRadius(12).frame(maxHeight: .infinity) }
-                if !playback.error.isEmpty { Failure(message: playback.error) { reload += 1 }.background(Color.navy.opacity(0.95)).frame(maxHeight: .infinity) }
-            }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().background(Color.black)
-            HStack(spacing: 12) {
-                Button {
-                    if playback.player.rate != 0 { playback.player.pause() } else { playback.player.play() }
-                } label: { Image(systemName: playback.playing ? "pause.fill" : "play.fill").font(.title3).frame(width: 28, height: 36) }.accessibilityLabel(playback.playing ? "Tạm dừng" : "Phát")
-                Text(Wire.clock(playback.position)).font(.caption.monospacedDigit())
-                Slider(value: Binding(get: { seeking ? seekPosition : playback.position }, set: { seekPosition = $0 }), in: 0...max(1, playback.duration), onEditingChanged: { editing in
-                    if editing { seekPosition = playback.position; seeking = true } else { seeking = false; playback.seek(to: seekPosition) }
-                }).tint(.accent).disabled(playback.duration <= 0)
-                Text(Wire.clock(playback.duration)).font(.caption.monospacedDigit())
-            }.padding(.horizontal, 18).padding(.top, 8).background(Color.navy)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 25) {
-                    Button { playback.seek(by: -15) } label: { Label("15s", systemImage: "gobackward.15") }
-                    Button { playback.seek(by: 15) } label: { Label("15s", systemImage: "goforward.15") }
-                    Menu { ForEach(["1", "2", "3"], id: \.self) { server in Button("Máy chủ " + server) { playback.server = server } } } label: { Label("Máy chủ " + playback.server, systemImage: "server.rack") }
-                    Button { subtitlesOpen = true } label: { Label("CC", systemImage: "captions.bubble") }
-                    Button { playback.togglePiP() } label: { Label("PiP", systemImage: "pip") }
-                    Menu { ForEach([0.75, 1, 1.25, 1.5, 2], id: \.self) { rate in Button(String(format: "%.2g×", rate)) { playback.player.rate = Float(rate) } } } label: { Label("Tốc độ", systemImage: "speedometer") }
-                    if let next = playback.nextEpisode { Button { active = next } label: { Label("Tập tiếp", systemImage: "forward.end.fill") } }
-                }.font(.system(size: 13, weight: .medium)).padding(18)
-            }.background(Color.navy)
+            header
+            video
+            timeline
+            controls
         }.foregroundColor(.white).background(Color.black.ignoresSafeArea())
             .task(id: "\(actualTarget.id)-\(playback.server)-\(reload)") { await playback.load(actualTarget, session: session) }
             .onDisappear { Task { await playback.stop() } }
             .onChange(of: scenePhase) { phase in if phase != .active { Task { await playback.saveProgress() } } }
             .sheet(isPresented: $subtitlesOpen) { SubtitlePanel(playback: playback) }
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Button { Task { await playback.stop(); dismiss() } } label: { Image(systemName: "chevron.down").font(.title2).padding(10) }.accessibilityLabel("Đóng trình phát")
+            Text(playback.title.isEmpty ? actualTarget.title : playback.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+            Spacer(minLength: 0)
+        }.padding(.horizontal, 10).background(Color.navy)
+    }
+
+    private var video: some View {
+        ZStack(alignment: .bottom) {
+            NativeVideo(playback: playback).clipped()
+            if !playback.caption.isEmpty {
+                Text(playback.caption).font(.system(size: size, weight: .semibold)).foregroundColor(yellow ? .yellow : .white)
+                    .multilineTextAlignment(.center).padding(8).background(background ? Color.black.opacity(0.65) : Color.clear).cornerRadius(4)
+                    .shadow(color: .black, radius: 2).padding(.horizontal, 24).padding(.bottom, bottom).allowsHitTesting(false)
+            }
+            if playback.loading { ProgressView("Đang tải video…").padding(24).background(Color.black.opacity(0.8)).cornerRadius(12).frame(maxHeight: .infinity) }
+            if !playback.error.isEmpty { Failure(message: playback.error) { reload += 1 }.background(Color.navy.opacity(0.95)).frame(maxHeight: .infinity) }
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().background(Color.black)
+    }
+
+    private var timeline: some View {
+        HStack(spacing: 12) {
+            Button {
+                if playback.player.rate != 0 { playback.player.pause() } else { playback.player.play() }
+            } label: { Image(systemName: playback.playing ? "pause.fill" : "play.fill").font(.title3).frame(width: 28, height: 36) }.accessibilityLabel(playback.playing ? "Tạm dừng" : "Phát")
+            Text(Wire.clock(playback.position)).font(.caption.monospacedDigit())
+            Slider(value: Binding(get: { seeking ? seekPosition : playback.position }, set: { seekPosition = $0 }), in: 0...max(1, playback.duration), onEditingChanged: { editing in
+                if editing { seekPosition = playback.position; seeking = true } else { seeking = false; playback.seek(to: seekPosition) }
+            }).tint(.accent).disabled(playback.duration <= 0)
+            Text(Wire.clock(playback.duration)).font(.caption.monospacedDigit())
+        }.padding(.horizontal, 18).padding(.top, 8).background(Color.navy)
+    }
+
+    private var controls: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 25) {
+                Button { playback.seek(by: -15) } label: { Label("15s", systemImage: "gobackward.15") }
+                Button { playback.seek(by: 15) } label: { Label("15s", systemImage: "goforward.15") }
+                Menu { ForEach(["1", "2", "3"], id: \.self) { server in Button("Máy chủ " + server) { playback.server = server } } } label: { Label("Máy chủ " + playback.server, systemImage: "server.rack") }
+                Button { subtitlesOpen = true } label: { Label("CC", systemImage: "captions.bubble") }
+                Button { playback.togglePiP() } label: { Label("PiP", systemImage: "pip") }
+                Menu { ForEach([0.75, 1, 1.25, 1.5, 2], id: \.self) { rate in Button(String(format: "%.2g×", rate)) { playback.player.rate = Float(rate) } } } label: { Label("Tốc độ", systemImage: "speedometer") }
+                if let next = playback.nextEpisode { Button { active = next } label: { Label("Tập tiếp", systemImage: "forward.end.fill") } }
+            }.font(.system(size: 13, weight: .medium)).padding(18)
+        }.background(Color.navy)
     }
 }
 struct SubtitlePanel: View {
