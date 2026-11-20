@@ -8,7 +8,8 @@ mkdir -p "$APP"
 xcrun swiftc -swift-version 5 -parse-as-library -D UI_PREVIEW -target "$ARCH-apple-ios15.0-simulator" -sdk "$SDK" Sources/*.swift -o "$APP/XemPhim" -framework SwiftUI -framework AVKit -framework Security -framework SafariServices
 cp Info.plist "$APP/Info.plist"
 plutil -replace CFBundleSupportedPlatforms -json '["iPhoneSimulator"]' "$APP/Info.plist"
-codesign --force --sign - --entitlements Entitlements.plist "$APP"
+# Simulator binaries run under macOS/CoreSimulator, not TrollStore's iOS signer.
+# Do not apply the device-only application/keychain identity to this executable.
 DEVICE="$(xcrun simctl list devices available -j | ruby -rjson -e 'j=JSON.parse(STDIN.read); d=j["devices"].values.flatten.find{|x| x["name"].start_with?("iPhone")}; abort "No iPhone simulator" unless d; puts d["udid"]')"
 xcrun simctl boot "$DEVICE" || true
 xcrun simctl bootstatus "$DEVICE" -b
