@@ -1,3 +1,6 @@
-node_modules/
 build/
-Resources/legacy.css
+.DS_Store
+*.ipa
+*.apk
+*.p12
+*.mobileprovision

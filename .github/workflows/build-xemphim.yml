@@ -1,0 +1,34 @@
+name: Build XemPhim iOS IPA
+on:
+  push:
+    branches: [codex/xemphim-native-ios]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Protocol, subtitle and URL checks
+        run: |
+          mkdir -p build
+          xcrun swiftc Sources/Core.swift Tests/main.swift -o build/protocol-tests
+          build/protocol-tests | tee build/test-results.txt
+      - name: Build iOS 15 arm64 IPA
+        run: bash scripts/build.sh
+      - name: Simulator compile and launch
+        run: bash scripts/simulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XemPhim-iOS15-TrollStore
+          path: |
+            build/XemPhim-iOS15-TrollStore.ipa
+            build/SHA256.txt
+            build/macho-info.txt
+            build/test-results.txt
+            build/simulator-*.png
+            build/simulator-launch.txt
+          if-no-files-found: error
