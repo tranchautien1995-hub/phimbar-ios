@@ -26,6 +26,9 @@ struct PlayTarget: Identifiable {
     private var statusObserver: NSKeyValueObservation?, periodicObserver: Any?, endObserver: NSObjectProtocol?, failedObserver: NSObjectProtocol?
     private var currentID = "", ticket = UUID(), subtitleTicket = UUID(), pendingPosition = 0.0, prepared = false
     private var lastSave = Date.distantPast, saveBusy = false, didPlay = false
+    private var pendingSave: (id: String, seconds: Int)?
+    private var originalTargetID = ""
+    private var lastPresence = Date()
     private weak var session: Session?
     private var subtitleTask: Task<Void, Never>?
     private var cueCache: [String: [Cue]] = [:]
@@ -42,10 +45,12 @@ struct PlayTarget: Identifiable {
             Task { @MainActor in guard let self = self, note.object as? AVPlayerItem === self.player.currentItem else { return }; self.error = "Video bị gián đoạn. Hãy thử máy chủ khác hoặc tải lại."; self.playing = false }
         }
     }
-    func load(_ target: PlayTarget, session: Session, switching: Bool = false) async {
-        if switching { await saveProgress() }
+    func load(_ target: PlayTarget, session: Session) async {
+        let sameTarget = originalTargetID == target.id
+        if sameTarget { await saveProgress() }
         let currentTicket = UUID(); ticket = currentTicket; loading = true; error = ""; prepared = false
-        let keep = switching && position > 0 ? position : nil
+        let keep = sameTarget && position > 0 ? position : nil
+        originalTargetID = target.id
         player.pause(); self.session = session; title = target.title
         do {
             var id = target.id
@@ -136,14 +141,33 @@ struct PlayTarget: Identifiable {
         }
         #endif
         if playing && Date().timeIntervalSince(lastSave) >= 15 { lastSave = Date(); Task { await saveProgress() } }
+        if playing && Date().timeIntervalSince(lastPresence) >= 30 {
+            lastPresence = Date(); let token = ticket
+            Task {
+                guard let session = session else { return }
+                if let status = try? await session.get("watching-elsewhere"), token == ticket, status["watchingElsewhere"].bool {
+                    player.pause(); error = "Tài khoản đang xem ở thiết bị khác. Dừng phiên đó rồi chọn Thử lại."; playing = false
+                }
+            }
+        }
     }
     func saveProgress() async {
-        guard didPlay, prepared, player.currentItem?.error == nil, position.isFinite, position > 1, !currentID.isEmpty, !saveBusy else { return }
+        guard didPlay, prepared, player.currentItem?.error == nil, position.isFinite, position > 1, !currentID.isEmpty else { return }
         let id = currentID, seconds = Int(position)
         UserDefaults.standard.set(position, forKey: "resume." + id)
-        guard let session = session else { return }; saveBusy = true; defer { saveBusy = false }
+        pendingSave = (id, seconds)
+        guard let session = session, !saveBusy else { return }; saveBusy = true
+        let token = session.login?.token
         // Do not substitute a load failure or a fresh zero for the saved watch time.
-        do { _ = try await session.data("titles/" + Wire.segment(id) + "/progress", method: "PUT", body: ["time": seconds]) } catch { /* Local fallback retained; a progress error must not interrupt video. */ }
+        // Closing or changing servers never waits for the progress network request.
+        Task {
+            defer { saveBusy = false }
+            while let pending = pendingSave {
+                pendingSave = nil
+                guard session.login?.token == token else { break }
+                do { _ = try await session.data("titles/" + Wire.segment(pending.id) + "/progress", method: "PUT", body: ["time": pending.seconds]) } catch { /* Local fallback retained. */ }
+            }
+        }
     }
     func seek(by seconds: Double) { let target = min(max(0, position + seconds), duration > 0 ? duration : Double.greatestFiniteMagnitude); player.seek(to: CMTime(seconds: target, preferredTimescale: 600)) }
     func stop() async {
@@ -204,7 +228,7 @@ struct NativeVideo: UIViewControllerRepresentable {
                 }.font(.system(size: 13, weight: .medium)).padding(18)
             }.background(Color.navy)
         }.foregroundColor(.white).background(Color.black.ignoresSafeArea())
-            .task(id: "\(actualTarget.id)-\(playback.server)-\(reload)") { await playback.load(actualTarget, session: session, switching: playback.position > 0 && active == nil) }
+            .task(id: "\(actualTarget.id)-\(playback.server)-\(reload)") { await playback.load(actualTarget, session: session) }
             .onDisappear { Task { await playback.stop() } }
             .onChange(of: scenePhase) { phase in if phase != .active { Task { await playback.saveProgress() } } }
             .sheet(isPresented: $subtitlesOpen) { SubtitlePanel(playback: playback) }

@@ -35,7 +35,14 @@ struct Media: Identifiable, Equatable {
 struct Category: Identifiable {
     let id, title: String
     let items: [Media]
-    init(_ j: JSON) { id = j["id"].string; title = j["title"].string; items = j["items"].array.map(Media.init) }
+    let ranges: [String: [Media]]
+    init(_ j: JSON) {
+        id = j["id"].string; title = j["title"].string
+        var values: [String: [Media]] = [:]
+        for key in ["day", "week", "month"] { let list = j["ranges"][key].array.map(Media.init); if !list.isEmpty { values[key] = list } }
+        ranges = values
+        let list = j["items"].array.map(Media.init); items = list.isEmpty ? (values["day"] ?? []) : list
+    }
 }
 struct Season: Identifiable {
     let id: String; let number, count: Int

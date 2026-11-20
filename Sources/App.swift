@@ -169,10 +169,19 @@ struct Poster: View {
 }
 struct MediaRow: View {
     var title: String; var items: [Media]
+    var ranges: [String: [Media]] = [:]
+    @State var range = "day"
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(title).font(.system(size: 20, weight: .bold)).padding(.horizontal, 20)
-            ScrollView(.horizontal, showsIndicators: false) { LazyHStack(alignment: .top, spacing: 14) { ForEach(items) { Poster(media: $0) } }.padding(.horizontal, 20) }
+            HStack {
+                Text(title).font(.system(size: 20, weight: .bold)); Spacer()
+                if !ranges.isEmpty {
+                    Menu {
+                        ForEach([("day", "Ngày"), ("week", "Tuần"), ("month", "Tháng")], id: \.0) { entry in if ranges[entry.0] != nil { Button(entry.1) { range = entry.0 } } }
+                    } label: { Text(range == "day" ? "Ngày ▾" : range == "week" ? "Tuần ▾" : "Tháng ▾").font(.caption).foregroundColor(.white) }
+                }
+            }.padding(.horizontal, 20)
+            ScrollView(.horizontal, showsIndicators: false) { LazyHStack(alignment: .top, spacing: 14) { ForEach(ranges[range] ?? items) { Poster(media: $0) } }.padding(.horizontal, 20) }
         }.padding(.vertical, 10)
     }
 }
@@ -207,7 +216,7 @@ struct HomeScreen: View {
                 if loading && categories.isEmpty { ProgressView().frame(maxWidth: .infinity).padding(50) }
                 if !error.isEmpty { Failure(message: error) { refresh += 1 } }
                 if let first = categories.first?.items.first { Hero(media: first) }
-                ForEach(Array(categories.enumerated()), id: \.offset) { _, row in if !row.items.isEmpty { MediaRow(title: row.title, items: row.items) } }
+                ForEach(Array(categories.enumerated()), id: \.offset) { _, row in if !row.items.isEmpty { MediaRow(title: row.title, items: row.items, ranges: row.ranges) } }
                 if !loading && error.isEmpty && categories.isEmpty { Text("Chưa có phim trong danh mục.").padding(24) }
             }.padding(.bottom, 30)
         }.refreshable { await load() }.task(id: refresh) { await load() }

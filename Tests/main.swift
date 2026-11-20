@@ -8,6 +8,8 @@ check(media.id == "movie-1" && media.isSeries && media.year == "2026" && media.g
 check(Wire.safeURL("https://user:secret@example.com/a") == nil, "Credential-bearing video URL rejected")
 check(Wire.safeURL("http://example.com/a") == nil, "HTTPS required")
 check(Wire.segment("a/b?token#") == "a%2Fb%3Ftoken%23", "Episode ID encoded as one segment")
+let trending = Category(JSON(["id": "trending", "title": "Thịnh hành", "ranges": ["day": [fixture.raw], "week": [fixture.raw]]]))
+check(trending.items.count == 1 && trending.ranges["week"]?.count == 1, "Trending range fallback and weekly data")
 let clear = "playlist.m3u8"
 let encoded = Wire.rot(Data(clear.utf8).base64EncodedString(), by: 20)
 check(Wire.videoURL("https://example.com/" + encoded)?.absoluteString == "https://example.com/playlist.m3u8", "HLS filename transformation round trip")
