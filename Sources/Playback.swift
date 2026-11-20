@@ -47,9 +47,14 @@ struct PlayTarget: Identifiable {
     }
     func load(_ target: PlayTarget, session: Session) async {
         let sameTarget = originalTargetID == target.id
-        if sameTarget { await saveProgress() }
+        await saveProgress()
         let currentTicket = UUID(); ticket = currentTicket; loading = true; error = ""; prepared = false
+        subtitleTicket = UUID(); subtitleTask?.cancel()
         let keep = sameTarget && position > 0 ? position : nil
+        if !sameTarget {
+            position = 0; duration = 0; didPlay = false; cues = []; caption = ""
+            subtitles = []; selectedSubtitle = ""; cueCache.removeAll()
+        }
         originalTargetID = target.id
         player.pause(); self.session = session; title = target.title
         do {
