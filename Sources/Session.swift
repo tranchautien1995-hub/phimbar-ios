@@ -31,9 +31,15 @@ enum LoginKeychain {
         config.timeoutIntervalForRequest = 20; config.timeoutIntervalForResource = 45
         config.httpCookieStorage = nil; config.urlCredentialStorage = nil
         http = URLSession(configuration: config)
+        #if UI_PREVIEW
+        if Preview.enabled { login = Login(token: "SIMULATOR-FIXTURE-NOT-A-REAL-TOKEN", name: "Dữ liệu kiểm tra", email: "fixture@example.invalid") }
+        #endif
     }
     func data(_ path: String, query: [URLQueryItem] = [], method: String = "GET", body: [String: Any]? = nil, authenticated: Bool = true) async throws -> Data {
         try Task.checkCancellation()
+        #if UI_PREVIEW
+        if Preview.enabled { return try Preview.response(path) }
+        #endif
         var request = URLRequest(url: Wire.endpoint(path, query: query)); request.httpMethod = method
         request.setValue("XemPhim/1.4", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

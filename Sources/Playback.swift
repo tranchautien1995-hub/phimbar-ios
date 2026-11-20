@@ -10,8 +10,18 @@ struct PlayTarget: Identifiable {
 }
 @MainActor final class Playback: ObservableObject {
     let player = AVPlayer()
-    @Published var loading = true, error = "", subtitleError = "", title = "", server = "1", playing = false
-    @Published var subtitles: [Subtitle] = [], selectedSubtitle = "", cues: [Cue] = [], caption = "", position = 0.0, duration = 0.0
+    @Published var loading = true
+    @Published var error = ""
+    @Published var subtitleError = ""
+    @Published var title = ""
+    @Published var server = "1"
+    @Published var playing = false
+    @Published var subtitles: [Subtitle] = []
+    @Published var selectedSubtitle = ""
+    @Published var cues: [Cue] = []
+    @Published var caption = ""
+    @Published var position = 0.0
+    @Published var duration = 0.0
     @Published var nextEpisode: PlayTarget?
     private var statusObserver: NSKeyValueObservation?, periodicObserver: Any?, endObserver: NSObjectProtocol?, failedObserver: NSObjectProtocol?
     private var currentID = "", ticket = UUID(), subtitleTicket = UUID(), pendingPosition = 0.0, prepared = false
@@ -117,6 +127,14 @@ struct PlayTarget: Identifiable {
         while lo < hi { let middle = (lo + hi) / 2; if cues[middle].start <= t { lo = middle + 1 } else { hi = middle } }
         let active = cues[max(0, lo - 8)..<lo].filter { $0.start <= t && $0.end > t }.map(\.text).joined(separator: "\n")
         if caption != active { caption = active }
+        #if UI_PREVIEW
+        if Preview.enabled && !Preview.playerVerified && playing && position >= 41 && !caption.isEmpty {
+            Preview.playerVerified = true
+            let record: [String: Any] = ["ready": true, "playing": true, "position": position, "savedStart": pendingPosition, "subtitleRendered": true, "cueCount": cues.count]
+            if let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
+               let bytes = try? JSONSerialization.data(withJSONObject: record, options: .prettyPrinted) { try? bytes.write(to: folder.appendingPathComponent("player-verification.json")) }
+        }
+        #endif
         if playing && Date().timeIntervalSince(lastSave) >= 15 { lastSave = Date(); Task { await saveProgress() } }
     }
     func saveProgress() async {
@@ -150,7 +168,8 @@ struct NativeVideo: UIViewControllerRepresentable {
     @Environment(\.scenePhase) var scenePhase
     @StateObject var playback = Playback()
     let target: PlayTarget
-    @State var subtitlesOpen = false, reload = 0
+    @State var subtitlesOpen = false
+    @State var reload = 0
     @AppStorage("subtitle.size") var size = 22.0
     @AppStorage("subtitle.bottom") var bottom = 50.0
     @AppStorage("subtitle.background") var background = true

@@ -29,6 +29,7 @@ jobs:
             build/SHA256.txt
             build/macho-info.txt
             build/test-results.txt
+            build/player-verification.json
             build/simulator-*.png
             build/simulator-launch.txt
           if-no-files-found: error

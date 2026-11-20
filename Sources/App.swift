@@ -44,17 +44,33 @@ struct SafariPage: UIViewControllerRepresentable {
     var body: some Scene {
         WindowGroup {
             NavigationView {
-                Group { if session.login != nil { Shell() } else { LoginScreen() } }
+                root
                     .background(Color.navy.ignoresSafeArea()).navigationBarHidden(true)
             }.navigationViewStyle(.stack).environmentObject(session).preferredColorScheme(.dark).tint(.accent)
                 .alert("XemPhim", isPresented: Binding(get: { session.message != nil }, set: { if !$0 { session.message = nil } })) { Button("Đóng", role: .cancel) {} } message: { Text(session.message ?? "") }
         }
     }
+    @ViewBuilder var root: some View {
+        #if UI_PREVIEW
+        if CommandLine.arguments.contains("--fixture-details") { DetailsScreen(initial: Media(JSON(Preview.movie))) }
+        else if CommandLine.arguments.contains("--fixture-player") { PlaybackScreen(target: PlayTarget(media: Media(JSON(Preview.movie)))) }
+        else { regular }
+        #else
+        regular
+        #endif
+    }
+    @ViewBuilder var regular: some View { if session.login != nil { Shell() } else { LoginScreen() } }
 }
 
 struct LoginScreen: View {
     @EnvironmentObject var session: Session
-    @State var email = "", password = "", busy = false, byCode = false, code = "", codeNote = "", refresh = 0
+    @State var email = ""
+    @State var password = ""
+    @State var busy = false
+    @State var byCode = false
+    @State var code = ""
+    @State var codeNote = ""
+    @State var refresh = 0
     @State var web = false
     var body: some View {
         GeometryReader { geo in
@@ -181,7 +197,10 @@ struct Hero: View {
 }
 struct HomeScreen: View {
     @EnvironmentObject var session: Session
-    @State var categories: [Category] = [], error = "", loading = true, refresh = 0
+    @State var categories: [Category] = []
+    @State var error = ""
+    @State var loading = true
+    @State var refresh = 0
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
@@ -202,7 +221,10 @@ struct HomeScreen: View {
 
 struct SearchScreen: View {
     @EnvironmentObject var session: Session
-    @State var query = "", items: [Media] = [], loading = false, error = ""
+    @State var query = ""
+    @State var items: [Media] = []
+    @State var loading = false
+    @State var error = ""
     var body: some View {
         VStack {
             HStack { Image(systemName: "magnifyingglass"); TextField("Tên phim, diễn viên…", text: $query).submitLabel(.search).disableAutocorrection(true); if !query.isEmpty { Button { query = "" } label: { Image(systemName: "xmark.circle.fill") } } }.padding(14).background(Color.raised).cornerRadius(8).padding(20)
@@ -224,7 +246,13 @@ struct MediaGrid: View {
 struct CatalogScreen: View {
     @EnvironmentObject var session: Session
     var path, title: String
-    @State var items: [Media] = [], filters: [JSON] = [], selected = -1, nextPage = 1, loading = false, error = "", refresh = 0
+    @State var items: [Media] = []
+    @State var filters: [JSON] = []
+    @State var selected = -1
+    @State var nextPage = 1
+    @State var loading = false
+    @State var error = ""
+    @State var refresh = 0
     var key: String { "\(path)-\(selected)-\(refresh)" }
     var body: some View {
         ScrollView {
@@ -270,7 +298,13 @@ struct ListsScreen: View {
 struct DetailsScreen: View {
     @EnvironmentObject var session: Session
     let initial: Media
-    @State var media: Media?, seasons: [Season] = [], episodes: [Episode] = [], seasonID = "", status = "", error = "", loading = true
+    @State var media: Media?
+    @State var seasons: [Season] = []
+    @State var episodes: [Episode] = []
+    @State var seasonID = ""
+    @State var status = ""
+    @State var error = ""
+    @State var loading = true
     @State var playback: PlayTarget?
     var current: Media { media ?? initial }
     var body: some View {
@@ -318,7 +352,12 @@ struct DetailsScreen: View {
 }
 struct AccountScreen: View {
     @EnvironmentObject var session: Session
-    @State var account = JSON(), vip = JSON(), error = "", loading = true, confirmLogout = false, web = false
+    @State var account = JSON()
+    @State var vip = JSON()
+    @State var error = ""
+    @State var loading = true
+    @State var confirmLogout = false
+    @State var web = false
     var body: some View {
         ScrollView { VStack(alignment: .leading, spacing: 22) {
             Text("Tài khoản").font(.title.bold())
