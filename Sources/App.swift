@@ -262,6 +262,7 @@ struct CatalogScreen: View {
     @State var loading = false
     @State var error = ""
     @State var refresh = 0
+    @State var loadID = UUID()
     var key: String { "\(path)-\(selected)-\(refresh)" }
     var body: some View {
         ScrollView {
@@ -282,10 +283,15 @@ struct CatalogScreen: View {
         }.id(path).task(id: key) { await load(reset: true) }
     }
     func load(reset: Bool) async {
-        guard !loading else { return }; loading = true; error = ""; defer { loading = false }
+        guard reset || !loading else { return }
+        let token = UUID(); loadID = token; loading = true; error = ""
+        defer { if token == loadID { loading = false } }
         if reset { items = []; nextPage = 1 }
         do {
-            if filters.isEmpty && !path.hasPrefix("my-list/") { filters = try await session.get(path + "/filters").array }
+            if filters.isEmpty && !path.hasPrefix("my-list/") {
+                let freshFilters = try await session.get(path + "/filters").array
+                guard token == loadID && !Task.isCancelled else { return }; filters = freshFilters
+            }
             var q = [URLQueryItem(name: "page", value: String(nextPage))]
             if selected >= 0 && selected < filters.count {
                 let f = filters[selected]
@@ -293,9 +299,10 @@ struct CatalogScreen: View {
                 if f["short"].bool { q.append(URLQueryItem(name: "short", value: "true")) }
             }
             let j = try await session.get(path, query: q), fresh = j["items"].array.map(Media.init)
+            guard token == loadID && !Task.isCancelled else { return }
             let existing = Set(items.map(\.id)); items += fresh.filter { !existing.contains($0.id) }
             nextPage = j["nextPage"].isNull ? 0 : Int(j["nextPage"].number)
-        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if !Task.isCancelled && token == loadID { self.error = error.localizedDescription } }
     }
 }
 struct ListsScreen: View {
