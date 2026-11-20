@@ -30,6 +30,8 @@ jobs:
             build/macho-info.txt
             build/test-results.txt
             build/player-verification.json
+            build/keychain-verification.json
+            build/entitlements.plist
             build/simulator-*.png
             build/simulator-launch.txt
           if-no-files-found: error

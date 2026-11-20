@@ -19,3 +19,7 @@ Lượt kiểm tra tích hợp ban đầu: [44813553589](https://github.com/tran
 Simulator dùng runtime iOS có sẵn trên runner macOS, không phải thiết bị XS Max/iOS 15.1 thật. Compilation target iOS 15.0 kiểm tra tính sẵn có của API, không chứng minh mọi codec/CDN hoặc entitlement trên thiết bị thật. Chưa thử đăng nhập hoàn chỉnh, play phim cần VIP, PiP thực, hoặc kiểm tra hình/tiếng trên iPhone của người dùng. Chỉ luồng cấp mã thiết bị API thật đã được kiểm tra không đăng nhập (200 đúng schema).
 
 API TV của APK mẫu giới hạn VIP trọn gói/VIP tháng, không dùng thuê lẻ. App iOS giữ giới hạn máy chủ này; không tự mua hoặc thay đổi gói.
+
+## Lưu phiên đăng nhập
+
+Ký app với application-identifier và nhóm Keychain riêng, không để phụ thuộc nhóm fallback chung của TrollStore. Tham chiếu: [Apple — Keychain access groups](https://developer.apple.com/documentation/security/ksecattraccessgroup), [TrollStore RootHelper — fallback entitlements](https://github.com/opa334/TrollStore/blob/main/RootHelper/main.m). Luồng QA simulator có phép thử lưu/đọc/xóa một token tổng hợp, không liên quan tài khoản người dùng. Kết quả cuối được xuất trong keychain-verification.json của artifact.

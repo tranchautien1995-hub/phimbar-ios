@@ -8,6 +8,7 @@ mkdir -p "$APP"
 xcrun swiftc -swift-version 5 -parse-as-library -D UI_PREVIEW -target "$ARCH-apple-ios15.0-simulator" -sdk "$SDK" Sources/*.swift -o "$APP/XemPhim" -framework SwiftUI -framework AVKit -framework Security -framework SafariServices
 cp Info.plist "$APP/Info.plist"
 plutil -replace CFBundleSupportedPlatforms -json '["iPhoneSimulator"]' "$APP/Info.plist"
+codesign --force --sign - --entitlements Entitlements.plist "$APP"
 DEVICE="$(xcrun simctl list devices available -j | ruby -rjson -e 'j=JSON.parse(STDIN.read); d=j["devices"].values.flatten.find{|x| x["name"].start_with?("iPhone")}; abort "No iPhone simulator" unless d; puts d["udid"]')"
 xcrun simctl boot "$DEVICE" || true
 xcrun simctl bootstatus "$DEVICE" -b
@@ -16,6 +17,12 @@ xcrun simctl status_bar "$DEVICE" override --time '9:41' --dataNetwork wifi --wi
 xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios | tee build/simulator-launch.txt
 sleep 8
 xcrun simctl io "$DEVICE" screenshot build/simulator-login.png
+xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
+xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios --fixture-keychain
+sleep 3
+DATA="$(xcrun simctl get_app_container "$DEVICE" vn.onnstream.phimbar.ios data)"
+cp "$DATA/Documents/keychain-verification.json" build/keychain-verification.json
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); abort "Keychain check failed" unless v["savedAndRead"] && v["deleted"]; puts "Keychain save/read/delete passed"' build/keychain-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
 for PAGE in home details; do
   xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios "--fixture-$PAGE"

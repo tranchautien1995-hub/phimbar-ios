@@ -4,12 +4,12 @@ Bản iOS viết lại bằng SwiftUI/AVKit, tham chiếu APK `XemPhim-v1.4.apk`
 
 ## Chức năng
 
-- Đăng nhập email/mật khẩu hoặc mã thiết bị; API gốc `https://phimfly.com/api/tv/v1/`, cùng wire contract của APK. Tài khoản đăng nhập trực tiếp trong app; mật khẩu không được lưu. Phiên lưu Keychain WhenUnlockedThisDeviceOnly, không ghi log token.
-- Trang chủ từ `home`; danh mục Series/Phim với bộ lọc và phân trang; tìm kiếm có debounce/hủy truy vấn cũ; các danh sách updates/watching/wishlist/watched; xem số dư và VIP.
+- Đăng nhập email/mật khẩu hoặc mã thiết bị; API gốc `https://phimfly.com/api/tv/v1/`, cùng wire contract của APK. Tài khoản đăng nhập trực tiếp trong app; mật khẩu không được lưu. Phiên lưu Keychain WhenUnlockedThisDeviceOnly trong access group riêng `TROLLTROLL.vn.onnstream.phimbar.ios`, không ghi log token. Chữ ký ad-hoc kèm application-identifier/team/keychain group thông thường, không xin quyền hệ thống.
+- Trang chủ từ `home`, Thịnh hành Ngày/Tuần/Tháng khi API có trả ranges; danh mục Series/Phim với bộ lọc và phân trang; tìm kiếm có debounce/hủy truy vấn cũ; các danh sách updates/watching/wishlist/watched; xem số dư và VIP.
 - Chi tiết phim, mùa/tập, danh sách cá nhân. Trình phát AVKit: tua, chọn máy chủ 1/2/3, tốc độ, phụ đề tích hợp iOS, PiP nếu nguồn và hệ thống hỗ trợ; tập tiếp khi API trả về.
 - Phụ đề ngoài SRT/WebVTT/ASS, định dạng payload của API gốc, chọn bản dịch, likes/dislikes, cỡ chữ/vị trí/nền đen/chữ vàng/lệch thời gian. ASS hiển thị lời thoại cơ bản, không tái tạo mọi hiệu ứng karaoke/typesetting của Android.
 - Đọc mốc xem server; lưu tiến độ khi đã phát được video, không ghi số 0 từ lỗi tải. Có fallback vị trí cục bộ. Chọn phụ đề không tạo lại AVPlayerItem và không đổi vị trí video.
-- HTTPS; token API không gửi tới máy chủ video hoặc ảnh. Không có endpoint mua tự động, không mua/gia hạn VIP, không thay đổi quyền tài khoản.
+- HTTPS; token API không gửi tới máy chủ video hoặc ảnh. Kiểm tra watching-elsewhere khi đang phát để xử lý phiên xem trên thiết bị khác. Không có endpoint mua tự động, không mua/gia hạn VIP, không thay đổi quyền tài khoản.
 
 ## Giới hạn từ app mẫu
 

@@ -8,7 +8,7 @@ xcrun swiftc -swift-version 5 -parse-as-library -target arm64-apple-ios15.0 -sdk
 cp Info.plist "$APP/Info.plist"
 xcrun swift scripts/icon.swift "$APP"
 plutil -lint "$APP/Info.plist"
-codesign --force --sign - "$APP"
+codesign --force --sign - --entitlements Entitlements.plist "$APP"
 codesign --verify --strict "$APP"
 otool -l "$APP/XemPhim" > build/macho-info.txt
 codesign -d --entitlements :- "$APP" > build/entitlements.plist 2>/dev/null || true

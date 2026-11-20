@@ -33,6 +33,16 @@ enum LoginKeychain {
         http = URLSession(configuration: config)
         #if UI_PREVIEW
         if Preview.enabled { login = Login(token: "SIMULATOR-FIXTURE-NOT-A-REAL-TOKEN", name: "Dữ liệu kiểm tra", email: "fixture@example.invalid") }
+        if CommandLine.arguments.contains("--fixture-keychain") {
+            var record: [String: Any] = [:]
+            do {
+                let fixture = Login(token: "KEYCHAIN-QA-NOT-A-REAL-TOKEN", name: "QA", email: "qa@example.invalid")
+                try LoginKeychain.save(fixture); record["savedAndRead"] = LoginKeychain.read()?.token == fixture.token
+                try LoginKeychain.save(nil); record["deleted"] = LoginKeychain.read() == nil
+            } catch { record["error"] = error.localizedDescription }
+            if let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
+               let bytes = try? JSONSerialization.data(withJSONObject: record, options: .prettyPrinted) { try? bytes.write(to: folder.appendingPathComponent("keychain-verification.json")) }
+        }
         #endif
     }
     func data(_ path: String, query: [URLQueryItem] = [], method: String = "GET", body: [String: Any]? = nil, authenticated: Bool = true) async throws -> Data {
