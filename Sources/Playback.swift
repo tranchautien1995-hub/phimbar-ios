@@ -23,6 +23,8 @@ struct PlayTarget: Identifiable {
     @Published var position = 0.0
     @Published var duration = 0.0
     @Published var nextEpisode: PlayTarget?
+    @Published var embeddedSubtitles: [AVMediaSelectionOption] = []
+    var pictureInPicture: AVPictureInPictureController?
     private var statusObserver: NSKeyValueObservation?, periodicObserver: Any?, endObserver: NSObjectProtocol?, failedObserver: NSObjectProtocol?
     private var currentID = "", ticket = UUID(), subtitleTicket = UUID(), pendingPosition = 0.0, prepared = false
     private var lastSave = Date.distantPast, saveBusy = false, didPlay = false
@@ -84,6 +86,7 @@ struct PlayTarget: Identifiable {
                     if item.status == .failed { self.loading = false; self.error = "Không phát được nguồn này trên iOS. Thử máy chủ khác." }
                     if item.status == .readyToPlay && !self.prepared {
                         self.prepared = true; self.loading = false
+                        self.embeddedSubtitles = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible)?.options ?? []
                         let total = item.duration.seconds, saved = self.pendingPosition
                         let safe = total.isFinite && total > 0 ? min(max(0, saved), max(0, total - 1)) : max(0, saved)
                         self.player.seek(to: CMTime(seconds: safe, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
@@ -109,6 +112,7 @@ struct PlayTarget: Identifiable {
     func choose(_ subtitle: Subtitle?) async {
         let token = UUID(); subtitleTicket = token
         guard let subtitle = subtitle else { selectedSubtitle = "off"; cues = []; caption = ""; return }
+        if let item = player.currentItem, let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) { item.select(nil, in: group) }
         selectedSubtitle = subtitle.id; subtitleError = ""
         if let cached = cueCache[subtitle.id] { cues = cached; return }
         cues = []; caption = ""
@@ -175,8 +179,23 @@ struct PlayTarget: Identifiable {
         }
     }
     func seek(by seconds: Double) { let target = min(max(0, position + seconds), duration > 0 ? duration : Double.greatestFiniteMagnitude); player.seek(to: CMTime(seconds: target, preferredTimescale: 600)) }
+    func seek(to seconds: Double) { guard seconds.isFinite else { return }; player.seek(to: CMTime(seconds: max(0, min(seconds, duration)), preferredTimescale: 600)) }
+    func selectEmbedded(_ option: AVMediaSelectionOption?) {
+        guard let item = player.currentItem, let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) else { return }
+        subtitleTicket = UUID(); selectedSubtitle = "off"; cues = []; caption = ""
+        item.select(option, in: group)
+    }
+    func attach(_ layer: AVPlayerLayer) {
+        guard pictureInPicture == nil, AVPictureInPictureController.isPictureInPictureSupported() else { return }
+        pictureInPicture = AVPictureInPictureController(playerLayer: layer)
+    }
+    func togglePiP() {
+        guard let pip = pictureInPicture, pip.isPictureInPicturePossible else { session?.message = "PiP chưa sẵn sàng cho video này."; return }
+        if pip.isPictureInPictureActive { pip.stopPictureInPicture() } else { pip.startPictureInPicture() }
+    }
     func stop() async {
         await saveProgress(); prepared = false; didPlay = false; ticket = UUID(); subtitleTicket = UUID(); subtitleTask?.cancel(); player.pause(); statusObserver = nil
+        if pictureInPicture?.isPictureInPictureActive == true { pictureInPicture?.stopPictureInPicture() }; pictureInPicture = nil
         if let token = periodicObserver { player.removeTimeObserver(token); periodicObserver = nil }
         if let token = endObserver { NotificationCenter.default.removeObserver(token); endObserver = nil }
         if let token = failedObserver { NotificationCenter.default.removeObserver(token); failedObserver = nil }
@@ -184,12 +203,21 @@ struct PlayTarget: Identifiable {
     }
 }
 
-struct NativeVideo: UIViewControllerRepresentable {
-    let player: AVPlayer
-    func makeUIViewController(context: Context) -> AVPlayerViewController {
-        let v = AVPlayerViewController(); v.player = player; v.showsPlaybackControls = true; v.allowsPictureInPicturePlayback = true; v.videoGravity = .resizeAspect; return v
+final class VideoSurface: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var videoLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+    var ready: ((AVPlayerLayer) -> Void)?
+    override func didMoveToWindow() { super.didMoveToWindow(); if window != nil { ready?(videoLayer) } }
+}
+struct NativeVideo: UIViewRepresentable {
+    let playback: Playback
+    func makeUIView(context: Context) -> VideoSurface {
+        let view = VideoSurface(); view.backgroundColor = .black; view.clipsToBounds = true
+        view.videoLayer.player = playback.player; view.videoLayer.videoGravity = .resizeAspect
+        view.ready = { [weak playback] layer in Task { @MainActor in playback?.attach(layer) } }
+        return view
     }
-    func updateUIViewController(_ view: AVPlayerViewController, context: Context) { view.player = player }
+    func updateUIView(_ view: VideoSurface, context: Context) { view.videoLayer.player = playback.player }
 }
 @MainActor struct PlaybackScreen: View {
     @EnvironmentObject var session: Session
@@ -204,6 +232,8 @@ struct NativeVideo: UIViewControllerRepresentable {
     @AppStorage("subtitle.background") var background = true
     @AppStorage("subtitle.yellow") var yellow = false
     @State var active: PlayTarget?
+    @State var seeking = false
+    @State var seekPosition = 0.0
     var actualTarget: PlayTarget { active ?? target }
     var body: some View {
         VStack(spacing: 0) {
@@ -213,7 +243,7 @@ struct NativeVideo: UIViewControllerRepresentable {
                 Spacer(minLength: 0)
             }.padding(.horizontal, 10).background(Color.navy)
             ZStack(alignment: .bottom) {
-                NativeVideo(player: playback.player)
+                NativeVideo(playback: playback).clipped()
                 if !playback.caption.isEmpty {
                     Text(playback.caption).font(.system(size: size, weight: .semibold)).foregroundColor(yellow ? .yellow : .white)
                         .multilineTextAlignment(.center).padding(8).background(background ? Color.black.opacity(0.65) : Color.clear).cornerRadius(4)
@@ -221,13 +251,24 @@ struct NativeVideo: UIViewControllerRepresentable {
                 }
                 if playback.loading { ProgressView("Đang tải video…").padding(24).background(Color.black.opacity(0.8)).cornerRadius(12).frame(maxHeight: .infinity) }
                 if !playback.error.isEmpty { Failure(message: playback.error) { reload += 1 }.background(Color.navy.opacity(0.95)).frame(maxHeight: .infinity) }
-            }.background(Color.black)
+            }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().background(Color.black)
+            HStack(spacing: 12) {
+                Button {
+                    if playback.player.rate != 0 { playback.player.pause() } else { playback.player.play() }
+                } label: { Image(systemName: playback.playing ? "pause.fill" : "play.fill").font(.title3).frame(width: 28, height: 36) }.accessibilityLabel(playback.playing ? "Tạm dừng" : "Phát")
+                Text(Wire.clock(playback.position)).font(.caption.monospacedDigit())
+                Slider(value: Binding(get: { seeking ? seekPosition : playback.position }, set: { seekPosition = $0 }), in: 0...max(1, playback.duration), onEditingChanged: { editing in
+                    if editing { seekPosition = playback.position; seeking = true } else { seeking = false; playback.seek(to: seekPosition) }
+                }).tint(.accent).disabled(playback.duration <= 0)
+                Text(Wire.clock(playback.duration)).font(.caption.monospacedDigit())
+            }.padding(.horizontal, 18).padding(.top, 8).background(Color.navy)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 25) {
                     Button { playback.seek(by: -15) } label: { Label("15s", systemImage: "gobackward.15") }
                     Button { playback.seek(by: 15) } label: { Label("15s", systemImage: "goforward.15") }
                     Menu { ForEach(["1", "2", "3"], id: \.self) { server in Button("Máy chủ " + server) { playback.server = server } } } label: { Label("Máy chủ " + playback.server, systemImage: "server.rack") }
                     Button { subtitlesOpen = true } label: { Label("CC", systemImage: "captions.bubble") }
+                    Button { playback.togglePiP() } label: { Label("PiP", systemImage: "pip") }
                     Menu { ForEach([0.75, 1, 1.25, 1.5, 2], id: \.self) { rate in Button(String(format: "%.2g×", rate)) { playback.player.rate = Float(rate) } } } label: { Label("Tốc độ", systemImage: "speedometer") }
                     if let next = playback.nextEpisode { Button { active = next } label: { Label("Tập tiếp", systemImage: "forward.end.fill") } }
                 }.font(.system(size: 13, weight: .medium)).padding(18)
@@ -251,6 +292,10 @@ struct SubtitlePanel: View {
         NavigationView {
             Form {
                 Section("Phụ đề") {
+                    if !playback.embeddedSubtitles.isEmpty {
+                        Button("Tắt phụ đề trong video") { playback.selectEmbedded(nil) }
+                        ForEach(Array(playback.embeddedSubtitles.enumerated()), id: \.offset) { _, option in Button("Trong video · " + option.displayName) { playback.selectEmbedded(option) } }
+                    }
                     Button("Tắt phụ đề ngoài") { Task { await playback.choose(nil) } }
                     ForEach(playback.subtitles) { sub in
                         VStack(alignment: .leading, spacing: 10) {
@@ -260,7 +305,6 @@ struct SubtitlePanel: View {
                     }
                     if !playback.subtitleError.isEmpty { Text(playback.subtitleError).font(.footnote).foregroundColor(.orange) }
                     Button("Tải lại danh sách phụ đề") { Task { await playback.reloadSubtitles() } }
-                    Text("Phụ đề tích hợp trong video nằm trong nút phụ đề của trình phát iOS.").font(.caption).foregroundColor(.secondary)
                 }
                 Section("Hiển thị") {
                     Text("Cỡ chữ: \(Int(size))"); Slider(value: $size, in: 12...44, step: 1)

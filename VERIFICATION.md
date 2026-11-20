@@ -23,3 +23,11 @@ API TV của APK mẫu giới hạn VIP trọn gói/VIP tháng, không dùng thu
 ## Lưu phiên đăng nhập
 
 Ký app với application-identifier và nhóm Keychain riêng, không để phụ thuộc nhóm fallback chung của TrollStore. Tham chiếu: [Apple — Keychain access groups](https://developer.apple.com/documentation/security/ksecattraccessgroup), [TrollStore RootHelper — fallback entitlements](https://github.com/opa334/TrollStore/blob/main/RootHelper/main.m). Luồng QA simulator có phép thử lưu/đọc/xóa một token tổng hợp, không liên quan tài khoản người dùng. Kết quả cuối được xuất trong keychain-verification.json của artifact.
+
+## Bản giao cuối 1.0.0
+
+- Commit d926c327d5be6b4cfe584b4ccc63d73450a15cce, [GitHub Actions 44817257880](https://github.com/tranchautien1995-hub/phimbar-ios/actions/runs/44817257880). Các bước protocol tests, build arm64 IPA, simulator/Xcode QA và upload artifact đều đạt.
+- 13 protocol checks đạt. Keychain simulator: savedAndRead=true, deleted=true. Player: ready=true, playing=true, savedStart=40, position=41.000080196, subtitleRendered=true, cueCount=1.
+- Kiểm tra chính IPA đã tải: Mach-O arm64, iOS platform 2, minimum 15.0.0, version 1.0.0; không có chuỗi tài khoản giả UI_PREVIEW.
+- IPA 425168 bytes; SHA256 8d3a79ec8cc3db47bf47fb16bc77cd9d0da91ea334a1ce4780861fb6307d6b66, trùng SHA256 artifact.
+- Xcode quản lý chữ ký/nhóm Keychain cho bản simulator; chữ ký riêng TrollStore dùng cho IPA thiết bị. Chưa kiểm tra trên iPhone thật hoặc tài khoản VIP thật. Không xác nhận trùng từng pixel với Android TV.
