@@ -27,6 +27,7 @@ struct PlayTarget: Identifiable {
     @Published var rentalRequest: RentalTarget?
     @Published var embeddedSubtitles: [AVMediaSelectionOption] = []
     var pictureInPicture: AVPictureInPictureController?
+    private weak var inlineLayer: AVPlayerLayer?
     private var statusObserver: NSKeyValueObservation?, periodicObserver: Any?, endObserver: NSObjectProtocol?, failedObserver: NSObjectProtocol?
     private var currentID = "", ticket = UUID(), subtitleTicket = UUID(), pendingPosition = 0.0, prepared = false
     private var lastSave = Date.distantPast, saveBusy = false, didPlay = false
@@ -215,9 +216,11 @@ struct PlayTarget: Identifiable {
         item.select(option, in: group)
     }
     func attach(_ layer: AVPlayerLayer) {
+        inlineLayer = layer
         guard pictureInPicture == nil, AVPictureInPictureController.isPictureInPictureSupported() else { return }
         pictureInPicture = AVPictureInPictureController(playerLayer: layer)
     }
+    func restoreInlineVideo() { inlineLayer?.player = nil; inlineLayer?.player = player }
     func togglePiP() {
         guard let pip = pictureInPicture, pip.isPictureInPicturePossible else { session?.message = "PiP chưa sẵn sàng cho video này."; return }
         if pip.isPictureInPictureActive { pip.stopPictureInPicture() } else { pip.startPictureInPicture() }
@@ -241,14 +244,13 @@ final class VideoSurface: UIView {
 }
 struct NativeVideo: UIViewRepresentable {
     let playback: Playback
-    var fill = false
     func makeUIView(context: Context) -> VideoSurface {
         let view = VideoSurface(); view.backgroundColor = .black; view.clipsToBounds = true
         view.videoLayer.player = playback.player; view.videoLayer.videoGravity = .resizeAspect
         view.ready = { [weak playback] layer in Task { @MainActor in playback?.attach(layer) } }
         return view
     }
-    func updateUIView(_ view: VideoSurface, context: Context) { view.videoLayer.player = playback.player; view.videoLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect }
+    func updateUIView(_ view: VideoSurface, context: Context) { view.videoLayer.player = playback.player }
 }
 @MainActor struct PlaybackScreen: View {
     @EnvironmentObject var session: Session
@@ -266,26 +268,20 @@ struct NativeVideo: UIViewRepresentable {
     @State var seeking = false
     @State var seekPosition = 0.0
     @State var rental: RentalTarget?
-    @State var fullscreen = false
-    @State var controlsShown = true
-    @State var fill = false
-    var showControls: Bool { !fullscreen || controlsShown }
-    func toggleFullscreen() { fullscreen.toggle(); controlsShown = !fullscreen }
+    @State var systemPlayerOpen = false
+    @State var loadedKey = ""
+    @State var nativeFixtureStarted = false
     var actualTarget: PlayTarget { active ?? target }
     var body: some View {
         VStack(spacing: 0) {
-            if showControls {
             HStack(spacing: 14) {
                 Button { Task { await playback.stop(); dismiss() } } label: { Image(systemName: "chevron.down").font(.title2).padding(10) }.accessibilityLabel("Đóng trình phát")
                 Text(playback.title.isEmpty ? actualTarget.title : playback.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                Button { toggleFullscreen() } label: { Image(systemName: fullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").padding(10) }.accessibilityLabel(fullscreen ? "Thoát toàn màn hình" : "Toàn màn hình")
+                Button { systemPlayerOpen = true } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").padding(10) }.accessibilityLabel("Toàn màn hình iOS").disabled(playback.loading)
             }.padding(.horizontal, 10).background(Color.navy)
-            }
             ZStack(alignment: .bottom) {
-                NativeVideo(playback: playback, fill: fill).clipped().contentShape(Rectangle())
-                    .onTapGesture(count: 2) { fullscreen = true; controlsShown = false; fill.toggle() }
-                    .onTapGesture { if fullscreen { controlsShown.toggle() } }
+                NativeVideo(playback: playback).clipped()
                 if !playback.caption.isEmpty {
                     Text(playback.caption).font(.system(size: size, weight: .semibold)).foregroundColor(yellow ? .yellow : .white)
                         .multilineTextAlignment(.center).padding(8).background(background ? Color.black.opacity(0.65) : Color.clear).cornerRadius(4)
@@ -294,7 +290,6 @@ struct NativeVideo: UIViewRepresentable {
                 if playback.loading { ProgressView("Đang tải video…").padding(24).background(Color.black.opacity(0.8)).cornerRadius(12).frame(maxHeight: .infinity) }
                 if !playback.error.isEmpty { Failure(message: playback.error) { reload += 1 }.background(Color.navy.opacity(0.95)).frame(maxHeight: .infinity) }
             }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().background(Color.black)
-            if showControls {
             HStack(spacing: 12) {
                 Button {
                     if playback.player.rate != 0 { playback.player.pause() } else { playback.player.play() }
@@ -307,8 +302,7 @@ struct NativeVideo: UIViewRepresentable {
             }.padding(.horizontal, 18).padding(.top, 8).background(Color.navy)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 25) {
-                    Button { toggleFullscreen() } label: { Label(fullscreen ? "Thu nhỏ" : "Toàn màn hình", systemImage: fullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") }
-                    Button { fill.toggle() } label: { Label(fill ? "Vừa khung" : "Lấp đầy", systemImage: "viewfinder") }.accessibilityHint("Lấp đầy có thể cắt bớt mép hình")
+                    Button { systemPlayerOpen = true } label: { Label("Toàn màn hình iOS", systemImage: "arrow.up.left.and.arrow.down.right") }.disabled(playback.loading)
                     Button { playback.seek(by: -15) } label: { Label("15s", systemImage: "gobackward.15") }
                     Button { playback.seek(by: 15) } label: { Label("15s", systemImage: "goforward.15") }
                     if actualTarget.web == nil { Menu { ForEach(["1", "2", "3"], id: \.self) { server in Button("Máy chủ " + server) { playback.server = server } } } label: { Label("Máy chủ " + playback.server, systemImage: "server.rack") } }
@@ -320,27 +314,19 @@ struct NativeVideo: UIViewRepresentable {
                     if let next = playback.nextEpisode { Button { active = next } label: { Label("Tập tiếp", systemImage: "forward.end.fill") } }
                 }.font(.system(size: 13, weight: .medium)).padding(18)
             }.background(Color.navy)
-            }
         }.foregroundColor(.white).background(Color.black.ignoresSafeArea())
-            .ignoresSafeArea(fullscreen && !controlsShown ? .all : [], edges: .all)
-            .statusBar(hidden: fullscreen)
-            .overlay(alignment: .topTrailing) {
-                if fullscreen && !controlsShown {
-                    Button { fullscreen = false; controlsShown = true } label: { Image(systemName: "arrow.down.right.and.arrow.up.left").font(.title3).foregroundColor(.white).padding(14).background(Color.black.opacity(0.55)).clipShape(Circle()) }.accessibilityLabel("Thoát toàn màn hình").padding(.top, 44).padding(.trailing, 44)
-                }
+            .background(SystemPlayerPresenter(playback: playback, isPresented: $systemPlayerOpen).frame(width: 0, height: 0))
+            .task(id: "\(actualTarget.id)-\(playback.server)-\(reload)") {
+                let key = "\(actualTarget.id)-\(playback.server)-\(reload)"
+                guard loadedKey != key else { return }; loadedKey = key
+                await playback.load(actualTarget, session: session)
             }
             .onAppear {
                 #if UI_PREVIEW
-                if CommandLine.arguments.contains("--fixture-fullscreen") { fullscreen = true; controlsShown = false; fill = true }
+                if CommandLine.arguments.contains("--fixture-fullscreen") && !nativeFixtureStarted { nativeFixtureStarted = true; systemPlayerOpen = true }
                 #endif
             }
-            .task {
-                #if UI_PREVIEW
-                if CommandLine.arguments.contains("--fixture-fullscreen") { try? await Task.sleep(nanoseconds: 25_000_000_000); if !Task.isCancelled { controlsShown = true } }
-                #endif
-            }
-            .task(id: "\(actualTarget.id)-\(playback.server)-\(reload)") { await playback.load(actualTarget, session: session) }
-            .onDisappear { Task { await playback.stop() } }
+            .onDisappear { if !systemPlayerOpen { Task { await playback.stop() } } }
             .onChange(of: scenePhase) { phase in if phase != .active { Task { await playback.saveProgress() } } }
             .sheet(isPresented: $subtitlesOpen) { SubtitlePanel(playback: playback) }
             .onChange(of: playback.rentalRequest?.id) { value in if value != nil { rental = playback.rentalRequest } }

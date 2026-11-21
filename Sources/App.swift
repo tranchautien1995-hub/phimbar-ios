@@ -395,7 +395,7 @@ struct AccountScreen: View {
             }
             Button("Mở Phimbar · Quản lý tài khoản") { web = true }.buttonStyle(MainButton(secondary: true))
             Button("Đăng xuất") { confirmLogout = true }.buttonStyle(MainButton())
-            Text("XemPhim cho iOS · 1.1.1\nAPI phimfly.com · Tương thích iOS 15 trở lên").font(.caption).foregroundColor(.secondary)
+            Text("XemPhim cho iOS · 1.1.2\nAPI phimfly.com · Tương thích iOS 15 trở lên").font(.caption).foregroundColor(.secondary)
         }.padding(24) }.task { await load() }.sheet(isPresented: $web) { SafariPage(url: URL(string: "https://phimbar.com/")!) }
             .confirmationDialog("Đăng xuất khỏi XemPhim?", isPresented: $confirmLogout) { Button("Đăng xuất", role: .destructive) { Task { do { try await session.logout() } catch { session.report(error) } } } }
     }

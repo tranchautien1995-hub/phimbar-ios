@@ -46,8 +46,10 @@ cat build/web-player-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
 
 xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios --fixture-fullscreen
-sleep 20
+sleep 8
 xcrun simctl io "$DEVICE" screenshot build/simulator-fullscreen.png
-sleep 10
+sleep 27
 xcrun simctl io "$DEVICE" screenshot build/simulator-fullscreen-controls.png
+cp "$DATA/Documents/native-fullscreen-verification.json" build/native-fullscreen-verification.json
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); abort "Native fullscreen failed" unless %w[nativeController nativeControls samePlayer pauseWorked seekWorked returnedToPlayer].all?{|k| v[k]}; puts "Native controls, pause, seek and return passed"' build/native-fullscreen-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios

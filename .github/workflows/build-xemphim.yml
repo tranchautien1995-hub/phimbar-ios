@@ -33,6 +33,7 @@ jobs:
             build/rental-test-results.txt
             build/player-verification.json
             build/web-player-verification.json
+            build/native-fullscreen-verification.json
             build/keychain-verification.json
             build/entitlements.plist
             build/simulator-entitlements.plist
