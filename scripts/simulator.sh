@@ -53,3 +53,5 @@ xcrun simctl io "$DEVICE" screenshot build/simulator-fullscreen-controls.png
 cp "$DATA/Documents/native-fullscreen-verification.json" build/native-fullscreen-verification.json
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); abort "Native fullscreen failed" unless %w[nativeController nativeControls samePlayer pauseWorked seekWorked returnedToPlayer].all?{|k| v[k]}; puts "Native controls, pause, seek and return passed"' build/native-fullscreen-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
+xcodebuild -project XemPhimQA.xcodeproj -scheme XemPhimQA -sdk iphonesimulator -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build/QA-DerivedData -resultBundlePath build/native-controls.xcresult CODE_SIGN_IDENTITY=- test > build/native-ui-test.log 2>&1 || { tail -150 build/native-ui-test.log; exit 1; }
+xcrun xcresulttool export attachments --path build/native-controls.xcresult --output-path build/native-ui-images || true

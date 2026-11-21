@@ -21,8 +21,23 @@ targets:
         CODE_SIGN_IDENTITY: '-'
         CODE_SIGNING_ALLOWED: YES
         TARGETED_DEVICE_FAMILY: '1,2'
+  NativeControlsUI:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: XemPhimQA
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: vn.onnstream.phimbar.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+        TEST_TARGET_NAME: XemPhimQA
+        CODE_SIGN_IDENTITY: '-'
 schemes:
   XemPhimQA:
     build:
       targets:
         XemPhimQA: all
+    test:
+      targets: [NativeControlsUI]

@@ -34,6 +34,8 @@ jobs:
             build/player-verification.json
             build/web-player-verification.json
             build/native-fullscreen-verification.json
+            build/native-ui-test.log
+            build/native-ui-images/**
             build/keychain-verification.json
             build/entitlements.plist
             build/simulator-entitlements.plist
