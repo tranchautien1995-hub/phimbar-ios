@@ -6,11 +6,10 @@ final class NativeControlsTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "vn.onnstream.phimbar.ios")
         app.launchArguments = ["--fixture-fullscreen", "--ui-controls"]
         app.launch()
-        let pause = app.buttons.matching(NSPredicate(format: "label ==[c] 'Pause'")).firstMatch
+        let pause = app.buttons.matching(identifier: "Play/Pause").firstMatch
         if !pause.waitForExistence(timeout: 15) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap() }
         XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
         if !pause.isHittable { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap() }
-        snapshot("native-controls")
         pause.tap()
         let play = app.buttons.matching(NSPredicate(format: "label ==[c] 'Play'")).firstMatch
         XCTAssertTrue(play.waitForExistence(timeout: 5), app.debugDescription)
@@ -19,7 +18,7 @@ final class NativeControlsTests: XCTestCase {
         XCTAssertNotNil(slider, app.debugDescription)
         slider?.adjust(toNormalizedSliderPosition: 0.3)
         snapshot("native-scrubbed")
-        play.tap()
+        pause.tap()
         let close = app.buttons.matching(NSPredicate(format: "label ==[c] 'Close' OR label ==[c] 'Done'")).firstMatch
         if !close.isHittable { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap() }
         XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)

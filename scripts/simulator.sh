@@ -13,6 +13,13 @@ xcrun simctl boot "$DEVICE" || true
 xcrun simctl bootstatus "$DEVICE" -b
 xcrun simctl install "$DEVICE" "$APP"
 xcrun simctl status_bar "$DEVICE" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+run_native_ui() {
+  local ui_status=0
+  xcodebuild -project XemPhimQA.xcodeproj -scheme XemPhimQA -sdk iphonesimulator -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build/QA-DerivedData -resultBundlePath build/native-controls.xcresult CODE_SIGN_IDENTITY=- test > build/native-ui-test.log 2>&1 || ui_status=$?
+  xcrun xcresulttool export attachments --path build/native-controls.xcresult --output-path build/native-ui-images || true
+  if [ "$ui_status" -ne 0 ]; then tail -150 build/native-ui-test.log; return "$ui_status"; fi
+}
+if [ "${NATIVE_UI_ONLY:-0}" = 1 ]; then run_native_ui; exit $?; fi
 xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios | tee build/simulator-launch.txt
 sleep 8
 xcrun simctl io "$DEVICE" screenshot build/simulator-login.png
@@ -53,5 +60,4 @@ xcrun simctl io "$DEVICE" screenshot build/simulator-fullscreen-controls.png
 cp "$DATA/Documents/native-fullscreen-verification.json" build/native-fullscreen-verification.json
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); abort "Native fullscreen failed" unless %w[nativeController nativeControls samePlayer pauseWorked seekWorked returnedToPlayer].all?{|k| v[k]}; puts "Native controls, pause, seek and return passed"' build/native-fullscreen-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
-xcodebuild -project XemPhimQA.xcodeproj -scheme XemPhimQA -sdk iphonesimulator -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build/QA-DerivedData -resultBundlePath build/native-controls.xcresult CODE_SIGN_IDENTITY=- test > build/native-ui-test.log 2>&1 || { tail -150 build/native-ui-test.log; exit 1; }
-xcrun xcresulttool export attachments --path build/native-controls.xcresult --output-path build/native-ui-images || true
+run_native_ui
