@@ -4,7 +4,8 @@ cd "$(dirname "$0")/.."
 mkdir -p build/Payload/XemPhim.app
 APP=build/Payload/XemPhim.app
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-xcrun swiftc -swift-version 5 -parse-as-library -target arm64-apple-ios15.0 -sdk "$SDK" -O Sources/*.swift -o "$APP/XemPhim" -framework SwiftUI -framework AVKit -framework Security -framework SafariServices
+xcrun swiftc -swift-version 5 -parse-as-library -target arm64-apple-ios15.0 -sdk "$SDK" -O Sources/*.swift -o "$APP/XemPhim" -framework SwiftUI -framework AVKit -framework Security -framework SafariServices -framework WebKit
+cp Resources/* "$APP/"
 cp Info.plist "$APP/Info.plist"
 xcrun swift scripts/icon.swift "$APP"
 plutil -lint "$APP/Info.plist"

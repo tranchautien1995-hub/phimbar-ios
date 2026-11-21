@@ -65,7 +65,7 @@ enum LoginKeychain {
         case 401:
             if authenticated { try? LoginKeychain.save(nil); login = nil }
             throw ClientError.message(authenticated ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." : "Email hoặc mật khẩu không đúng.")
-        case 402, 403: throw ClientError.message("Tài khoản chưa có quyền xem nội dung này. API TV yêu cầu VIP trọn gói/VIP tháng còn hạn; thuê lẻ không áp dụng trên app TV gốc.")
+        case 402, 403: throw ClientError.accessDenied
         case 404: throw ClientError.message("Không tìm thấy nội dung này.")
         case 429: throw ClientError.message("Có quá nhiều yêu cầu. Vui lòng đợi một phút rồi thử lại.")
         case 400, 422: throw ClientError.message("Thông tin gửi chưa hợp lệ. Kiểm tra lại và thử lại.")

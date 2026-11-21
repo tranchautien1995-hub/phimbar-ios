@@ -5,7 +5,8 @@ import Combine
 struct PlayTarget: Identifiable {
     let id, title: String
     let resolveSeries: Bool
-    init(id: String, title: String, resolveSeries: Bool) { self.id = id; self.title = title; self.resolveSeries = resolveSeries }
+    var web: WebPlayback? = nil
+    init(id: String, title: String, resolveSeries: Bool, web: WebPlayback? = nil) { self.id = id; self.title = title; self.resolveSeries = resolveSeries; self.web = web }
     init(media: Media) { id = media.id; title = media.title; resolveSeries = media.isSeries }
 }
 @MainActor final class Playback: ObservableObject {
@@ -23,6 +24,7 @@ struct PlayTarget: Identifiable {
     @Published var position = 0.0
     @Published var duration = 0.0
     @Published var nextEpisode: PlayTarget?
+    @Published var rentalRequest: RentalTarget?
     @Published var embeddedSubtitles: [AVMediaSelectionOption] = []
     var pictureInPicture: AVPictureInPictureController?
     private var statusObserver: NSKeyValueObservation?, periodicObserver: Any?, endObserver: NSObjectProtocol?, failedObserver: NSObjectProtocol?
@@ -34,6 +36,9 @@ struct PlayTarget: Identifiable {
     private weak var session: Session?
     private var subtitleTask: Task<Void, Never>?
     private var cueCache: [String: [Cue]] = [:]
+    private var webCues: [String: [Cue]] = [:]
+    private var webAsset: RentalAsset?
+    private var webMode = false
     init() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
@@ -58,27 +63,40 @@ struct PlayTarget: Identifiable {
             subtitles = []; selectedSubtitle = ""; cueCache.removeAll()
         }
         originalTargetID = target.id
+        webAsset?.close(); webAsset = nil; rentalRequest = nil; webCues.removeAll()
+        webMode = target.web != nil
         player.pause(); self.session = session; title = target.title
         do {
             var id = target.id
-            if target.resolveSeries {
+            if target.resolveSeries && target.web == nil {
                 let play = try await session.get("titles/" + Wire.segment(id) + "/play")
                 id = play["episode"]["id"].string
                 guard !id.isEmpty else { throw ClientError.message("Chưa có tập phim để phát.") }
                 title = target.title + " · Mùa \(Int(play["seasonNumber"].number)) · Tập \(Int(play["episode"]["number"].number))"
             }
             let root = "titles/" + Wire.segment(id)
-            let source = try await session.get(root + "/video", query: [URLQueryItem(name: "server", value: server)])
+            let source: JSON
+            if let web = target.web { source = JSON(["url": web.url.absoluteString]) }
+            else {
+                do { source = try await session.get(root + "/video", query: [URLQueryItem(name: "server", value: server)]) }
+                catch ClientError.accessDenied { rentalRequest = RentalTarget(id: id, title: title); throw ClientError.message("Bạn có thể thuê lẻ đúng phim/tập qua Phimbar ở màn vừa mở.") }
+            }
             guard currentTicket == ticket else { return }
             guard let url = Wire.videoURL(source["url"].string) else { throw ClientError.message("Nguồn video không hợp lệ hoặc chưa hỗ trợ HTTPS.") }
-            let watch = try? await session.get(root + "/watch")
+            var watch: JSON?
+            if target.web == nil { watch = try? await session.get(root + "/watch") }
             try Task.checkCancellation(); guard currentTicket == ticket else { return }
             currentID = id; didPlay = false; lastSave = Date(); nextEpisode = nil
-            pendingPosition = keep ?? (watch?["time"].isNull == false ? watch!["time"].number : UserDefaults.standard.double(forKey: "resume." + id))
+            let webPosition = target.web?.time ?? 0
+            let local = UserDefaults.standard.double(forKey: "resume." + id)
+            if target.web != nil { pendingPosition = keep ?? (UserDefaults.standard.object(forKey: "resume." + id) != nil ? local : webPosition) }
+            else { pendingPosition = keep ?? (watch?["time"].isNull == false ? watch!["time"].number : local) }
             if let next = watch?["nextEpisode"], !next["episode"]["id"].string.isEmpty {
                 nextEpisode = PlayTarget(id: next["episode"]["id"].string, title: target.title + " · Tập \(Int(next["episode"]["number"].number))", resolveSeries: false)
             }
-            let asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": "XemPhim/1.4"]])
+            let asset: AVURLAsset
+            if let web = target.web { let loader = RentalAsset(source: web); webAsset = loader; asset = try await loader.start() }
+            else { asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": "XemPhim/1.4"]]) }
             let item = AVPlayerItem(asset: asset); statusObserver = nil
             statusObserver = item.observe(\.status, options: [.new]) { [weak self] item, _ in
                 Task { @MainActor in
@@ -96,7 +114,15 @@ struct PlayTarget: Identifiable {
                 }
             }
             player.replaceCurrentItem(with: item)
-            subtitleTask?.cancel(); subtitleTask = Task { [weak self] in await self?.loadSubtitles(id: id, ticket: currentTicket, session: session) }
+            subtitleTask?.cancel()
+            if let web = target.web, !web.subtitles.isEmpty {
+                subtitles = web.subtitles.enumerated().map { index, sub in
+                    let id = "web-\(index)"; webCues[id] = sub.cues
+                    return Subtitle(JSON(["id": id, "language": sub.language, "releaseName": sub.label, "isDefault": index == 0]))
+                }
+                if let first = subtitles.first(where: { ["vi", "vie"].contains($0.language.lowercased()) }) ?? subtitles.first { await choose(first) }
+            } else if target.web == nil { subtitleTask = Task { [weak self] in await self?.loadSubtitles(id: id, ticket: currentTicket, session: session) } }
+            else { subtitles = []; cues = []; subtitleError = "Chọn phụ đề trên website và đợi phụ đề tải trước khi chuyển sang trình phát app." }
         } catch { if !Task.isCancelled && currentTicket == ticket { loading = false; self.error = error.localizedDescription } }
     }
     private func loadSubtitles(id: String, ticket: UUID, session: Session) async {
@@ -114,6 +140,7 @@ struct PlayTarget: Identifiable {
         guard let subtitle = subtitle else { selectedSubtitle = "off"; cues = []; caption = ""; return }
         if let item = player.currentItem, let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) { item.select(nil, in: group) }
         selectedSubtitle = subtitle.id; subtitleError = ""
+        if let loaded = webCues[subtitle.id] { cues = loaded; return }
         if let cached = cueCache[subtitle.id] { cues = cached; return }
         cues = []; caption = ""
         do {
@@ -130,6 +157,7 @@ struct PlayTarget: Identifiable {
     }
     func reloadSubtitles() async { guard let session = session, !currentID.isEmpty else { return }; await loadSubtitles(id: currentID, ticket: ticket, session: session) }
     func vote(_ subtitle: Subtitle, value: String) async {
+        guard !subtitle.id.hasPrefix("web-") else { return }
         do { guard let session = session else { return }; let result = try await session.get("subtitles/" + Wire.segment(subtitle.id) + "/vote", method: "POST", body: ["isLike": value == "like"]); subtitles = result["subtitles"].array.map(Subtitle.init) } catch { session?.report(error) }
     }
     private func tick(_ seconds: Double) {
@@ -150,7 +178,7 @@ struct PlayTarget: Identifiable {
         }
         #endif
         if playing && Date().timeIntervalSince(lastSave) >= 15 { lastSave = Date(); Task { await saveProgress() } }
-        if playing && Date().timeIntervalSince(lastPresence) >= 30 {
+        if !webMode && playing && Date().timeIntervalSince(lastPresence) >= 30 {
             lastPresence = Date(); let token = ticket
             Task {
                 guard let session = session else { return }
@@ -164,6 +192,7 @@ struct PlayTarget: Identifiable {
         guard didPlay, prepared, player.currentItem?.error == nil, position.isFinite, position > 1, !currentID.isEmpty else { return }
         let id = currentID, seconds = Int(position)
         UserDefaults.standard.set(position, forKey: "resume." + id)
+        if webMode { return } // Website session may differ from native API session.
         pendingSave = (id, seconds)
         guard let session = session, !saveBusy else { return }; saveBusy = true
         let token = session.login?.token
@@ -196,6 +225,7 @@ struct PlayTarget: Identifiable {
     func stop() async {
         await saveProgress(); prepared = false; didPlay = false; ticket = UUID(); subtitleTicket = UUID(); subtitleTask?.cancel(); player.pause(); statusObserver = nil
         if pictureInPicture?.isPictureInPictureActive == true { pictureInPicture?.stopPictureInPicture() }; pictureInPicture = nil
+        webAsset?.close(); webAsset = nil
         if let token = periodicObserver { player.removeTimeObserver(token); periodicObserver = nil }
         if let token = endObserver { NotificationCenter.default.removeObserver(token); endObserver = nil }
         if let token = failedObserver { NotificationCenter.default.removeObserver(token); failedObserver = nil }
@@ -234,6 +264,7 @@ struct NativeVideo: UIViewRepresentable {
     @State var active: PlayTarget?
     @State var seeking = false
     @State var seekPosition = 0.0
+    @State var rental: RentalTarget?
     var actualTarget: PlayTarget { active ?? target }
     var body: some View {
         VStack(spacing: 0) {
@@ -266,8 +297,10 @@ struct NativeVideo: UIViewRepresentable {
                 HStack(spacing: 25) {
                     Button { playback.seek(by: -15) } label: { Label("15s", systemImage: "gobackward.15") }
                     Button { playback.seek(by: 15) } label: { Label("15s", systemImage: "goforward.15") }
-                    Menu { ForEach(["1", "2", "3"], id: \.self) { server in Button("Máy chủ " + server) { playback.server = server } } } label: { Label("Máy chủ " + playback.server, systemImage: "server.rack") }
+                    if actualTarget.web == nil { Menu { ForEach(["1", "2", "3"], id: \.self) { server in Button("Máy chủ " + server) { playback.server = server } } } label: { Label("Máy chủ " + playback.server, systemImage: "server.rack") } }
+                    else { Button { rental = RentalTarget(id: actualTarget.id, title: playback.title) } label: { Label("Đổi máy chủ", systemImage: "server.rack") } }
                     Button { subtitlesOpen = true } label: { Label("CC", systemImage: "captions.bubble") }
+                    Button { rental = RentalTarget(id: actualTarget.id, title: playback.title) } label: { Label("Thuê lẻ", systemImage: "cart") }
                     Button { playback.togglePiP() } label: { Label("PiP", systemImage: "pip") }
                     Menu { ForEach([0.75, 1, 1.25, 1.5, 2], id: \.self) { rate in Button(String(format: "%.2g×", rate)) { playback.player.rate = Float(rate) } } } label: { Label("Tốc độ", systemImage: "speedometer") }
                     if let next = playback.nextEpisode { Button { active = next } label: { Label("Tập tiếp", systemImage: "forward.end.fill") } }
@@ -278,6 +311,8 @@ struct NativeVideo: UIViewRepresentable {
             .onDisappear { Task { await playback.stop() } }
             .onChange(of: scenePhase) { phase in if phase != .active { Task { await playback.saveProgress() } } }
             .sheet(isPresented: $subtitlesOpen) { SubtitlePanel(playback: playback) }
+            .onChange(of: playback.rentalRequest?.id) { value in if value != nil { rental = playback.rentalRequest } }
+            .sheet(item: $rental) { target in RentalSheet(target: target) { source in rental = nil; active = source; reload += 1 } }
     }
 }
 struct SubtitlePanel: View {

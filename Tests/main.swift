@@ -30,3 +30,15 @@ do { _ = try Wire.subtitleText(Data(encrypted.base64EncodedString().utf8), fileN
 check(rejected, "Subtitle authentication failure detected")
 check(Wire.clock(6300) == "1:45:00" && Wire.clock(.nan) == "00:00", "Resume display and invalid time")
 print("All protocol checks passed.")
+
+let signed = URL(string: "https://cdn.example.com/media/master.m3u8?key=demo")!
+check(HLSRouting.remote(HLSRouting.proxy(signed)) == signed, "Web HLS route preserves signed URL")
+let playlist = "#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\nsegment.ts\n"
+let mapped = HLSRouting.rewrite(playlist, base: signed)
+check(mapped.contains("xemphim-hls://resource/") && !mapped.contains("URI=\"key.bin\""), "Playlist segments and key URI mapped")
+let cookie = HTTPCookie(properties: [.domain: ".phimbar.com", .path: "/", .name: "session", .value: "fixture"])!
+check(HLSRouting.cookieHeader([cookie], for: URL(string: "https://phimbar.com/watch/a")!) != nil, "Website cookie matches own origin")
+check(HLSRouting.cookieHeader([cookie], for: URL(string: "https://cdn.example.com/a")!) == nil && HLSRouting.cookieHeader([cookie], for: URL(string: "https://evilphimbar.com/a")!) == nil, "Website cookie not forwarded to CDN or suffix impersonation")
+
+let unpadded = encoded.replacingOccurrences(of: "=", with: "")
+check(Wire.videoURL("https://example.com/" + unpadded)?.absoluteString == "https://example.com/playlist.m3u8", "Unpadded source filename compatibility")

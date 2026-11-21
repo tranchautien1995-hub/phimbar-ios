@@ -36,3 +36,11 @@ DATA="$(xcrun simctl get_app_container "$DEVICE" vn.onnstream.phimbar.ios data)"
 cp "$DATA/Documents/player-verification.json" build/player-verification.json
 cat build/player-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
+
+rm -f "$DATA/Documents/player-verification.json"
+xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios --fixture-web-player
+sleep 40
+xcrun simctl io "$DEVICE" screenshot build/simulator-web-player.png
+cp "$DATA/Documents/player-verification.json" build/web-player-verification.json
+cat build/web-player-verification.json
+xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios

@@ -89,7 +89,9 @@ enum Wire {
     static func videoURL(_ value: String) -> URL? {
         guard let slash = value.lastIndex(of: "/") else { return nil }
         let tail = String(value[value.index(after: slash)...]), pieces = tail.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
-        if pieces.count > 0, pieces.last != "m3u8", let decoded = Data(base64Encoded: rot(String(pieces[0]), by: 6)),
+        var encoded = rot(String(pieces.first ?? ""), by: 6)
+        while encoded.count % 4 != 0 { encoded += "=" }
+        if pieces.count > 0, pieces.last != "m3u8", let decoded = Data(base64Encoded: encoded),
            let name = String(data: decoded, encoding: .isoLatin1), !name.isEmpty,
            name.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value < 127 }) {
             let suffix = pieces.count > 1 ? "." + pieces[1] : ""
@@ -148,5 +150,6 @@ enum Wire {
 }
 enum ClientError: LocalizedError {
     case message(String)
-    var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
+    case accessDenied
+    var errorDescription: String? { if case .message(let text) = self { return text }; return "Tài khoản chưa có quyền xem phim/tập này. Chọn Thuê lẻ để kiểm tra quyền trên Phimbar." }
 }

@@ -52,7 +52,8 @@ struct SafariPage: UIViewControllerRepresentable {
     }
     @ViewBuilder var root: some View {
         #if UI_PREVIEW
-        if CommandLine.arguments.contains("--fixture-details") { DetailsScreen(initial: Media(JSON(Preview.movie))) }
+        if CommandLine.arguments.contains("--fixture-web-player") { PlaybackScreen(target: PlayTarget(id: "qa-movie", title: "Tập đã thuê · Kiểm tra", resolveSeries: false, web: WebPlayback(url: URL(string: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")!, page: URL(string: "https://phimbar.com/watch/qa-movie")!, time: 40, cookies: [], subtitles: [WebSubtitle(label: "Tiếng Việt", language: "vi", cues: [Cue(start: 0, end: 3600, text: "Phụ đề tập đã thuê · Dữ liệu kiểm tra")])], userAgent: "XemPhim/1.4"))) }
+        else if CommandLine.arguments.contains("--fixture-details") { DetailsScreen(initial: Media(JSON(Preview.movie))) }
         else if CommandLine.arguments.contains("--fixture-player") { PlaybackScreen(target: PlayTarget(media: Media(JSON(Preview.movie)))) }
         else { regular }
         #else
@@ -322,6 +323,7 @@ struct DetailsScreen: View {
     @State var error = ""
     @State var loading = true
     @State var playback: PlayTarget?
+    @State var rental: RentalTarget?
     var current: Media { media ?? initial }
     var body: some View {
         ScrollView {
@@ -338,12 +340,18 @@ struct DetailsScreen: View {
                         Button("Xóa khỏi danh sách", role: .destructive) { Task { await setList(nil) } }
                     } label: { Label(status.isEmpty ? "Danh sách" : "Đã lưu", systemImage: status.isEmpty ? "plus" : "checkmark") }.buttonStyle(MainButton(secondary: true))
                 }
+                if !current.isSeries {
+                    Button { rental = RentalTarget(id: current.id, title: current.title) } label: { Label("Thuê lẻ phim này", systemImage: "cart") }.buttonStyle(MainButton(secondary: true))
+                } else { Text("Chọn Thuê tập bên cạnh tập muốn xem.").font(.caption).foregroundColor(.secondary) }
                 Text(Wire.clean(current.description)).font(.system(size: 15)).foregroundColor(.white.opacity(0.8)).textSelection(.enabled)
                 if !current.actors.isEmpty { Text("Diễn viên: " + current.actors.joined(separator: ", ")).font(.footnote).foregroundColor(.secondary) }
                 if !current.countries.isEmpty { Text(current.countries.joined(separator: " · ")).font(.footnote).foregroundColor(.secondary) }
                 if !seasons.isEmpty {
                     Picker("Mùa", selection: $seasonID) { ForEach(seasons) { s in Text("Mùa \(s.number) · \(s.count) tập").tag(s.id) } }.pickerStyle(.menu)
-                    ForEach(episodes) { ep in Button { playback = PlayTarget(id: ep.id, title: current.title + " · Tập \(ep.number)", resolveSeries: false) } label: { HStack { Image(systemName: "play.circle.fill"); VStack(alignment: .leading) { Text("Tập \(ep.number): \(ep.name)").font(.system(size: 15, weight: .medium)); if !ep.duration.isEmpty { Text(ep.duration).font(.caption).foregroundColor(.secondary) } }; Spacer() }.padding(16).background(Color.surface).cornerRadius(8) }.foregroundColor(.white) }
+                    ForEach(episodes) { ep in HStack {
+                        Button { playback = PlayTarget(id: ep.id, title: current.title + " · Tập \(ep.number)", resolveSeries: false) } label: { HStack { Image(systemName: "play.circle.fill"); VStack(alignment: .leading) { Text("Tập \(ep.number): \(ep.name)").font(.system(size: 15, weight: .medium)); if !ep.duration.isEmpty { Text(ep.duration).font(.caption).foregroundColor(.secondary) } }; Spacer() }.padding(16).background(Color.surface).cornerRadius(8) }.foregroundColor(.white)
+                        Button("Thuê tập") { rental = RentalTarget(id: ep.id, title: current.title + " · Tập \(ep.number)") }.buttonStyle(MainButton(secondary: true))
+                    } }
                 }
                 if loading { ProgressView() }
                 if !error.isEmpty { Text(error).font(.footnote).foregroundColor(.orange); Button("Thử tải lại") { Task { await load() } }.buttonStyle(MainButton(secondary: true)) }
@@ -353,6 +361,7 @@ struct DetailsScreen: View {
                 guard !seasonID.isEmpty else { return }; episodes = []
                 do { episodes = try await session.get("seasons/" + Wire.segment(seasonID) + "/episodes").array.map(Episode.init) } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
             }.fullScreenCover(item: $playback) { PlaybackScreen(target: $0) }
+            .sheet(item: $rental) { item in RentalSheet(target: item) { source in rental = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { playback = source } } }
     }
     func load() async {
         loading = true; error = ""; defer { loading = false }
@@ -386,7 +395,7 @@ struct AccountScreen: View {
             }
             Button("Mở Phimbar · Quản lý tài khoản") { web = true }.buttonStyle(MainButton(secondary: true))
             Button("Đăng xuất") { confirmLogout = true }.buttonStyle(MainButton())
-            Text("XemPhim cho iOS · 1.0.0\nAPI phimfly.com · Tương thích iOS 15 trở lên").font(.caption).foregroundColor(.secondary)
+            Text("XemPhim cho iOS · 1.1.0\nAPI phimfly.com · Tương thích iOS 15 trở lên").font(.caption).foregroundColor(.secondary)
         }.padding(24) }.task { await load() }.sheet(isPresented: $web) { SafariPage(url: URL(string: "https://phimbar.com/")!) }
             .confirmationDialog("Đăng xuất khỏi XemPhim?", isPresented: $confirmLogout) { Button("Đăng xuất", role: .destructive) { Task { do { try await session.logout() } catch { session.report(error) } } } }
     }
