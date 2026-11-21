@@ -35,6 +35,7 @@ import Combine
             vc.allowsPictureInPicturePlayback = true; vc.modalPresentationStyle = .fullScreen
             vc.delegate = self; vc.loadViewIfNeeded()
             if let overlay = vc.contentOverlayView {
+                overlay.isUserInteractionEnabled = false
                 let host = UIHostingController(rootView: SystemCaptions(playback: parent.playback))
                 captions = host; host.view.backgroundColor = .clear; host.view.isUserInteractionEnabled = false
                 vc.addChild(host); overlay.addSubview(host.view); host.view.translatesAutoresizingMaskIntoConstraints = false
