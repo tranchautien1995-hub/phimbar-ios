@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+for RESOURCE in legacy.css compat.js rental.js; do
+  test -s "Resources/$RESOURCE" || { echo "Missing rental resource: $RESOURCE"; exit 1; }
+done
 mkdir -p build/Payload/XemPhim.app
 APP=build/Payload/XemPhim.app
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
