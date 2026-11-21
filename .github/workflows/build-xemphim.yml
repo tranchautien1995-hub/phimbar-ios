@@ -19,6 +19,14 @@ jobs:
           build/protocol-tests | tee build/test-results.txt
       - name: Build iOS 15 arm64 IPA
         run: bash scripts/build.sh
+      - name: Publish installable IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: XemPhim-iOS15-IPA
+          path: |
+            build/XemPhim-iOS15-TrollStore.ipa
+            build/SHA256.txt
+          if-no-files-found: error
       - name: Simulator compile and launch
         env:
           NATIVE_UI_ONLY: '1'
