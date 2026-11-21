@@ -322,11 +322,11 @@ struct NativeVideo: UIViewRepresentable {
             }.background(Color.navy)
             }
         }.foregroundColor(.white).background(Color.black.ignoresSafeArea())
-            .ignoresSafeArea(fullscreen ? .all : [], edges: .all)
+            .ignoresSafeArea(fullscreen && !controlsShown ? .all : [], edges: .all)
             .statusBar(hidden: fullscreen)
             .overlay(alignment: .topTrailing) {
                 if fullscreen && !controlsShown {
-                    Button { fullscreen = false; controlsShown = true } label: { Image(systemName: "arrow.down.right.and.arrow.up.left").font(.title3).padding(14).background(Color.black.opacity(0.55)).clipShape(Circle()) }.accessibilityLabel("Thoát toàn màn hình").padding(.top, 44).padding(.trailing, 18)
+                    Button { fullscreen = false; controlsShown = true } label: { Image(systemName: "arrow.down.right.and.arrow.up.left").font(.title3).foregroundColor(.white).padding(14).background(Color.black.opacity(0.55)).clipShape(Circle()) }.accessibilityLabel("Thoát toàn màn hình").padding(.top, 44).padding(.trailing, 44)
                 }
             }
             .onAppear {
