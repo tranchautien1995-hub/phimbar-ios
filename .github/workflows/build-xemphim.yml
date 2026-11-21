@@ -13,8 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Protocol, subtitle and URL checks
         run: |
-          node --test Tests/rental.test.cjs
           mkdir -p build
+          node --test Tests/rental.test.cjs | tee build/rental-test-results.txt
           xcrun swiftc Sources/Core.swift Sources/HLSRouting.swift Tests/main.swift -o build/protocol-tests
           build/protocol-tests | tee build/test-results.txt
       - name: Build iOS 15 arm64 IPA
@@ -30,6 +30,7 @@ jobs:
             build/SHA256.txt
             build/macho-info.txt
             build/test-results.txt
+            build/rental-test-results.txt
             build/player-verification.json
             build/web-player-verification.json
             build/keychain-verification.json

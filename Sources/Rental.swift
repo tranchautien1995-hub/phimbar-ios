@@ -51,7 +51,7 @@ enum RentalPolicy {
     func prepare() {
         guard RentalPolicy.watchID(web.url) != nil else { note = "Hãy đăng nhập trước. App sẽ trở về phim/tập bạn chọn."; return }
         web.evaluateJavaScript("window.XemRental ? window.XemRental.prepare() : 'waiting'") { [weak self] value, error in
-            self?.note = value as? String == "open" ? "Chỉ chọn Thuê lẻ cho phim/tập này. Giá hiển thị do Phimbar cung cấp." : "Trang đang tải hoặc tập đã có quyền VIP. Bạn có thể chọn Phát tập đã thuê khi website đã có video."
+            self?.note = ["open", "opening"].contains(value as? String ?? "") ? "Chọn Thuê lẻ cho phim/tập này trong bảng vừa mở. Giá hiển thị do Phimbar cung cấp." : "Trang đang tải hoặc tập đã có quyền VIP. Bạn có thể chọn Phát tập đã thuê khi website đã có video."
         }
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -98,6 +98,17 @@ enum RentalPolicy {
         if action.targetFrame == nil && RentalPolicy.trusted(action.request.url) { webView.load(action.request) }; return nil
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { if (error as NSError).code != NSURLErrorCancelled { note = "Không tải được website. Kiểm tra mạng và bấm tải lại." } }
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        note = message
+        guard let presenter = presenter() else { completionHandler(); return }
+        let alert = UIAlertController(title: "Phimbar", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() }); presenter.present(alert, animated: true)
+    }
+    private func presenter() -> UIViewController? {
+        var value = web.window?.rootViewController
+        while let next = value?.presentedViewController { value = next }
+        return value?.viewIfLoaded?.window == nil ? nil : value
+    }
 }
 struct RentalWeb: UIViewRepresentable {
     let controller: RentalController

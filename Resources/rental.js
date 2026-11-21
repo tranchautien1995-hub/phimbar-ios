@@ -25,7 +25,9 @@
     var button = Array.from(document.querySelectorAll('button')).find(function (n) { return /^Kích hoạt VIP mod(?:e)?$/i.test(clean(n)); });
     if (!button || button.disabled) return 'waiting';
     button.click(); p = parts(); if (p) p.monthly.style.display = 'none';
-    return p ? 'open' : 'waiting';
+    // Svelte renders the modal after the click handler returns.
+    [0, 150, 500].forEach(function (delay) { setTimeout(function () { var next = parts(); if (next) next.monthly.style.display = 'none'; }, delay); });
+    return p ? 'open' : 'opening';
   }
   function commit(fingerprint) {
     var current = offer();

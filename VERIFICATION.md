@@ -1,14 +1,11 @@
-# XemPhim iOS 1.0.0 — bản giao 21/11/2026
+# XemPhim iOS 1.1.0 — kiểm tra bản cập nhật thuê lẻ
 
-Bản IPA và mã nguồn phát hành lấy từ commit 85075bc4ffc68682efc74b81a3f3e8048e4c873a. Build và kiểm tra: https://github.com/tranchautien1995-hub/phimbar-ios/actions/runs/44819312373 . Artifact 14672296678. Thư mục nguồn phát hành: work/XemPhimIOS-release-1.0.0; không dùng bản refactor mới hơn để mô tả IPA này.
+Bản cập nhật dựa trên bản phát hành 1.0.0 commit 85075bc4ffc68682efc74b81a3f3e8048e4c873a, giữ bundle ID và Keychain group. Không dùng bản refactor thử nghiệm làm nền.
 
-- 13 kiểm tra protocol đạt: metadata, mã tập, HTTPS, URL HLS, giữ query signed URL, ranges thịnh hành, SRT/VTT/ASS, AES-GCM, xử lý payload sai và mốc thời gian.
-- Build arm64 deployment target iOS 15.0 và xác minh chữ ký ad-hoc thành công. Keychain giới hạn trong group riêng của app; không xin quyền hệ thống.
-- Simulator/Xcode QA: savedAndRead=true, deleted=true. Không phải đăng nhập tài khoản dịch vụ thật; token QA được xóa trong phép thử.
-- Player mẫu HLS: ready=true, playing=true, savedStart=40, position=41.000064596, subtitleRendered=true, cueCount=1. Dữ liệu phim và phụ đề dùng để thử, không phải dữ liệu từ tài khoản Phimbar.
-- Đã xem ảnh simulator-player.png: thấy khung hình video, câu phụ đề tiếng Việt, nút đóng/tên phim, phát-tạm dừng, thanh thời gian, tua 15s, máy chủ, CC và PiP. Lớp AVPlayerLayer giữ video trong view, điều khiển/sub không bị giao diện AVPlayerViewController che.
-- IPA 442571 bytes; SHA256 7b940c887eb192b8fe5fc529b7dd98fa45dcfcfcea0b2515bec080babc9a3c88, khớp file SHA256 của GitHub.
+8 kiểm tra thuê lẻ bằng DOM tổng hợp: mở modal đồng bộ/bất đồng bộ không tự mua và ẩn gói tháng; bấm thuê cần xác nhận; xác nhận đúng một lần; giá/tập thay đổi làm xác nhận cũ vô hiệu; chặn click/submit gói tháng; trang đăng nhập không tạo giao dịch; không tự tạo URL phát.
 
-Chưa kiểm tra trên iPhone XS Max iOS 15.1 thật, chưa đăng nhập tài khoản VIP thật hoặc thực hiện giao dịch. PiP thực, codec/CDN của mọi phim và đồng bộ tiến độ tài khoản thật chưa được xác nhận. ASS hỗ trợ lời thoại cơ bản, không mọi hiệu ứng typesetting. API TV của APK mẫu yêu cầu VIP trọn gói/VIP tháng; thuê lẻ không áp dụng. Giao diện được dựng lại cho cảm ứng iPhone, không xác nhận trùng từng pixel với Android TV.
+18 kiểm tra protocol/subtitle/HLS được chạy trên GitHub. Simulator chạy Keychain save/read/delete, phát HLS mẫu theo luồng API cũ và luồng website qua adapter nội bộ, phụ đề mẫu và vị trí tiếp tục xem. Xem artifact của lần build tương ứng để có kết quả thực tế; không coi mô tả phép thử là bằng chứng đạt.
 
-Phân tích APK tham chiếu SHA256 bc09b4e545a2b6092bc861faa5a9b1b170ec3a021d70defd705da2dc1bff4340. Không tải APK, mã Android dịch ngược, tài khoản, cookie hoặc token thật lên GitHub. Không mua/gia hạn VIP và không sửa dữ liệu xem thật trong lúc thử.
+Không đăng nhập tài khoản thật hoặc thực hiện giao dịch thật trong các phép thử. Chưa kiểm tra thanh toán thuê lẻ, mọi codec/CDN hoặc trên iPhone XS Max iOS 15.1 thật. API và bố cục website có thể thay đổi. App chỉ phát URL mà website cấp sau khi kiểm tra quyền; không thay giá/quyền VIP trên máy chủ. Phiên website riêng với API TV; tiến độ nguồn web chỉ lưu cục bộ.
+
+Không đưa APK tham chiếu, mã Android dịch ngược, mật khẩu, token hay cookie thật lên GitHub. Entitlements giữ phạm vi app và Keychain riêng, không xin quyền hệ thống.
