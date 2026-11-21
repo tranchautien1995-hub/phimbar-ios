@@ -24,7 +24,7 @@ final class NativeControlsTests: XCTestCase {
         if !close.isHittable { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap() }
         XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
         close.tap()
-        XCTAssertTrue(app.buttons["Toàn màn hình iOS"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.buttons.matching(identifier: "Toàn màn hình iOS").firstMatch.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(app.staticTexts["Phim kiểm tra"].exists, app.debugDescription)
         snapshot("returned-to-app-player")
     }
