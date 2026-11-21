@@ -44,3 +44,10 @@ xcrun simctl io "$DEVICE" screenshot build/simulator-web-player.png
 cp "$DATA/Documents/player-verification.json" build/web-player-verification.json
 cat build/web-player-verification.json
 xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios
+
+xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios --fixture-fullscreen
+sleep 20
+xcrun simctl io "$DEVICE" screenshot build/simulator-fullscreen.png
+sleep 10
+xcrun simctl io "$DEVICE" screenshot build/simulator-fullscreen-controls.png
+xcrun simctl terminate "$DEVICE" vn.onnstream.phimbar.ios

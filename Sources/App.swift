@@ -54,7 +54,7 @@ struct SafariPage: UIViewControllerRepresentable {
         #if UI_PREVIEW
         if CommandLine.arguments.contains("--fixture-web-player") { PlaybackScreen(target: PlayTarget(id: "qa-movie", title: "Tập đã thuê · Kiểm tra", resolveSeries: false, web: WebPlayback(url: URL(string: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")!, page: URL(string: "https://phimbar.com/watch/qa-movie")!, time: 40, cookies: [], subtitles: [WebSubtitle(label: "Tiếng Việt", language: "vi", cues: [Cue(start: 0, end: 3600, text: "Phụ đề tập đã thuê · Dữ liệu kiểm tra")])], userAgent: "XemPhim/1.4"))) }
         else if CommandLine.arguments.contains("--fixture-details") { DetailsScreen(initial: Media(JSON(Preview.movie))) }
-        else if CommandLine.arguments.contains("--fixture-player") { PlaybackScreen(target: PlayTarget(media: Media(JSON(Preview.movie)))) }
+        else if CommandLine.arguments.contains("--fixture-player") || CommandLine.arguments.contains("--fixture-fullscreen") { PlaybackScreen(target: PlayTarget(media: Media(JSON(Preview.movie)))) }
         else { regular }
         #else
         regular
@@ -395,7 +395,7 @@ struct AccountScreen: View {
             }
             Button("Mở Phimbar · Quản lý tài khoản") { web = true }.buttonStyle(MainButton(secondary: true))
             Button("Đăng xuất") { confirmLogout = true }.buttonStyle(MainButton())
-            Text("XemPhim cho iOS · 1.1.0\nAPI phimfly.com · Tương thích iOS 15 trở lên").font(.caption).foregroundColor(.secondary)
+            Text("XemPhim cho iOS · 1.1.1\nAPI phimfly.com · Tương thích iOS 15 trở lên").font(.caption).foregroundColor(.secondary)
         }.padding(24) }.task { await load() }.sheet(isPresented: $web) { SafariPage(url: URL(string: "https://phimbar.com/")!) }
             .confirmationDialog("Đăng xuất khỏi XemPhim?", isPresented: $confirmLogout) { Button("Đăng xuất", role: .destructive) { Task { do { try await session.logout() } catch { session.report(error) } } } }
     }
