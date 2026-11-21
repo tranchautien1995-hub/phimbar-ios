@@ -1,4 +1,8 @@
-# XemPhim iOS 1.1.0 — thuê lẻ theo phim/tập
+# XemPhim iOS 1.1.2 — trình phát iOS toàn màn hình
+
+Nút Toàn màn hình iOS trình bày trực tiếp AVPlayerViewController, dùng chung AVPlayer và current item. Giữ video và mốc đang xem khi chuyển vào/ra; chặn cleanup của màn phát nền trong lúc native player mở; khôi phục AVPlayerLayer khi quay lại. Phụ đề ngoài hiển thị bằng contentOverlayView không nhận thao tác chạm. Các tùy chọn CC vẫn nằm ở màn phát của app.
+
+Kiểm tra chạm thực trên simulator đã đạt cho hiện điều khiển, phát/dừng và nút Close quay về màn phát. Kiểm tra seek tới 75 giây bằng AVPlayer đã đạt; thanh thời gian native được kiểm tra bằng ảnh, chưa xác nhận kéo timeline bằng bài test chạm. Không coi phép thử chỉnh âm lượng trong log UI cũ là bằng chứng tua video. Chưa chạy trên XS Max iOS 15.1 thật.
 
 Giữ giao diện, danh mục, tìm kiếm, thư viện, trình phát và Keychain của bản 1.0.0 đã giao. Thêm nút Thuê lẻ phim này / Thuê tập cho từng tập; thêm màn thuê website ngay trong app. Bundle ID giữ nguyên để cài cập nhật, không xóa dữ liệu.
 

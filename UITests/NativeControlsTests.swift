@@ -1,7 +1,7 @@
 import XCTest
 
 final class NativeControlsTests: XCTestCase {
-    func testNativePauseScrubAndClose() {
+    func testNativePauseResumeAndClose() {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "vn.onnstream.phimbar.ios")
         app.launchArguments = ["--fixture-fullscreen", "--ui-controls"]
@@ -13,10 +13,6 @@ final class NativeControlsTests: XCTestCase {
         tap(transport, in: app)
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label ==[c] 'Play'")).firstMatch.waitForExistence(timeout: 3), app.debugDescription)
         snapshot("native-paused")
-        let slider = app.sliders.allElementsBoundByIndex.first(where: { $0.isHittable })
-        XCTAssertNotNil(slider, app.debugDescription)
-        slider?.adjust(toNormalizedSliderPosition: 0.3)
-        snapshot("native-scrubbed")
         let close = app.buttons.matching(NSPredicate(format: "label ==[c] 'Close' OR label ==[c] 'Done'")).firstMatch
         tap(close, in: app)
         XCTAssertTrue(app.buttons.matching(identifier: "Toàn màn hình iOS").firstMatch.waitForExistence(timeout: 10), app.debugDescription)
