@@ -3,6 +3,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
 xcodegen generate --spec simulator.yml
+if [ "${NATIVE_UI_ONLY:-0}" = 1 ]; then
+  DEVICE="$(xcrun simctl list devices available -j | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["devices"].values.flatten.find{|x| x["name"].start_with?("iPhone")}["udid"]')"
+  xcrun simctl boot "$DEVICE" || true
+  xcrun simctl bootstatus "$DEVICE" -b
+  ui_status=0
+  xcodebuild -project XemPhimQA.xcodeproj -scheme XemPhimQA -sdk iphonesimulator -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE" -parallel-testing-enabled NO -derivedDataPath build/QA-DerivedData -resultBundlePath build/native-controls.xcresult CODE_SIGN_IDENTITY=- test > build/native-ui-test.log 2>&1 || ui_status=$?
+  xcrun xcresulttool export attachments --path build/native-controls.xcresult --output-path build/native-ui-images || true
+  if [ "$ui_status" -ne 0 ]; then tail -150 build/native-ui-test.log; fi
+  exit "$ui_status"
+fi
 # Xcode creates the simulator's normal application identity and Keychain groups.
 # Device/TrollStore entitlements remain separate in scripts/build.sh.
 xcodebuild -project XemPhimQA.xcodeproj -scheme XemPhimQA -sdk iphonesimulator -configuration Debug -derivedDataPath build/QA-DerivedData CODE_SIGN_IDENTITY=- build > build/simulator-build.log 2>&1 || { tail -100 build/simulator-build.log; exit 1; }
@@ -19,7 +29,6 @@ run_native_ui() {
   xcrun xcresulttool export attachments --path build/native-controls.xcresult --output-path build/native-ui-images || true
   if [ "$ui_status" -ne 0 ]; then tail -150 build/native-ui-test.log; return "$ui_status"; fi
 }
-if [ "${NATIVE_UI_ONLY:-0}" = 1 ]; then run_native_ui; exit $?; fi
 xcrun simctl launch "$DEVICE" vn.onnstream.phimbar.ios | tee build/simulator-launch.txt
 sleep 8
 xcrun simctl io "$DEVICE" screenshot build/simulator-login.png

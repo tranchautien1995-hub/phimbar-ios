@@ -62,7 +62,18 @@ import Combine
         }
         #if UI_PREVIEW
         private func verifyPreview(_ vc: AVPlayerViewController) {
-            guard CommandLine.arguments.contains("--fixture-fullscreen"), !CommandLine.arguments.contains("--ui-controls") else { return }
+            guard CommandLine.arguments.contains("--fixture-fullscreen") else { return }
+            if CommandLine.arguments.contains("--ui-controls") {
+                Task { @MainActor in
+                    for _ in 0..<80 {
+                        if parent.playback.player.rate != 0 { break }
+                        try? await Task.sleep(nanoseconds: 250_000_000)
+                    }
+                    parent.playback.player.pause()
+                    vc.showsPlaybackControls = false; vc.showsPlaybackControls = true
+                }
+                return
+            }
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 let player = parent.playback.player, item = player.currentItem
